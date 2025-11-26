@@ -34,6 +34,10 @@ const Connection = sequelize.define('Connection', {
   profile_pic_url: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  profile_name: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'connections',

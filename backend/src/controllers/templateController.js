@@ -51,8 +51,29 @@ class TemplateController {
       const userId = req.user.id;
       const { name, message_type, text_content, media_url } = req.body;
 
-      // Validar que mídia URL existe para tipos que não são texto
-      if (message_type !== 'text' && !media_url) {
+      console.log('Template create payload:', {
+        name,
+        message_type,
+        hasText: !!text_content,
+        hasMedia: !!media_url,
+        mediaUrlSample: typeof media_url === 'string' ? media_url.slice(0, 80) : media_url
+      });
+
+      const trimmedName = name?.trim();
+      const trimmedText = typeof text_content === 'string' ? text_content.trim() : '';
+      const trimmedMedia = typeof media_url === 'string' ? media_url.trim() : '';
+
+      if (!trimmedName) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
+
+      if (message_type === 'text') {
+        if (!trimmedText) {
+          return res.status(400).json({
+            error: 'text_content is required for text templates'
+          });
+        }
+      } else if (!trimmedMedia) {
         return res.status(400).json({
           error: 'media_url is required for non-text message types'
         });
@@ -60,10 +81,10 @@ class TemplateController {
 
       const template = await MessageTemplate.create({
         user_id: userId,
-        name,
+        name: trimmedName,
         message_type,
-        text_content,
-        media_url
+        text_content: message_type === 'text' ? trimmedText : text_content || '',
+        media_url: message_type === 'text' ? null : trimmedMedia
       });
 
       res.status(201).json({
@@ -93,18 +114,35 @@ class TemplateController {
         return res.status(404).json({ error: 'Template not found' });
       }
 
-      // Validar que mídia URL existe para tipos que não são texto
-      if (message_type !== 'text' && !media_url) {
+      const nextType = message_type || template.message_type;
+      const nextText =
+        text_content !== undefined ? text_content : template.text_content;
+      const nextMedia =
+        media_url !== undefined ? media_url : template.media_url;
+
+      const trimmedName = name !== undefined ? name?.trim() : template.name;
+      const trimmedText =
+        typeof nextText === 'string' ? nextText.trim() : template.text_content;
+      const trimmedMedia =
+        typeof nextMedia === 'string' ? nextMedia.trim() : template.media_url;
+
+      if (nextType === 'text') {
+        if (!trimmedText) {
+          return res.status(400).json({
+            error: 'text_content is required for text templates'
+          });
+        }
+      } else if (!trimmedMedia) {
         return res.status(400).json({
           error: 'media_url is required for non-text message types'
         });
       }
 
       await template.update({
-        name,
-        message_type,
-        text_content,
-        media_url
+        name: trimmedName,
+        message_type: nextType,
+        text_content: nextType === 'text' ? trimmedText : nextText || '',
+        media_url: nextType === 'text' ? null : trimmedMedia
       });
 
       res.json({
@@ -139,6 +177,62 @@ class TemplateController {
     } catch (error) {
       console.error('Delete template error:', error);
       res.status(500).json({ error: 'Failed to delete template' });
+    }
+  }
+
+  /**
+   * Duplica um template
+   */
+  async duplicate(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      const { name } = req.body || {};
+
+      const template = await MessageTemplate.findOne({
+        where: { id, user_id: userId }
+      });
+
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+
+      let newName = name && name.trim();
+      if (!newName) {
+        const baseName = `${template.name} (cópia`;
+        let suffix = ')';
+        let counter = 1;
+
+        let existing = await MessageTemplate.findOne({
+          where: { user_id: userId, name: `${baseName}${suffix}` }
+        });
+
+        while (existing) {
+          suffix = ` ${counter})`;
+          existing = await MessageTemplate.findOne({
+            where: { user_id: userId, name: `${baseName}${suffix}` }
+          });
+          counter += 1;
+        }
+
+        newName = `${baseName}${suffix}`;
+      }
+
+      const duplicated = await MessageTemplate.create({
+        user_id: userId,
+        name: newName,
+        message_type: template.message_type,
+        text_content: template.text_content,
+        media_url: template.media_url
+      });
+
+      res.status(201).json({
+        message: 'Template duplicated successfully',
+        template: duplicated
+      });
+    } catch (error) {
+      console.error('Duplicate template error:', error);
+      res.status(500).json({ error: 'Failed to duplicate template' });
     }
   }
 }

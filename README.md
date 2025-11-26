@@ -198,28 +198,53 @@ npm run migrate
 
 ## 📦 Deploy
 
-### Railway / Render
+### 🚀 Deploy Rápido com Docker
 
-1. **Backend**:
-   - Adicione as variáveis de ambiente
-   - Configure PostgreSQL e Redis
-   - Build command: `cd backend && npm install`
-   - Start command: `cd backend && npm start`
-   - **Worker**: Create um serviço separado com `cd backend && npm run worker`
+A forma mais fácil de colocar a aplicação no ar é usando Docker Compose:
 
-2. **Frontend**:
-   - Adicione `VITE_API_URL` apontando para o backend
-   - Build command: `cd frontend && npm install && npm run build`
-   - Start command: Servir pasta `dist`
+```bash
+# 1. Criar arquivo .env na raiz (veja DEPLOY.md para variáveis necessárias)
+# 2. Executar deploy
+./deploy.sh docker
 
-### Importante para Deploy
+# Ou manualmente:
+docker-compose up -d --build
+docker-compose exec backend npm run migrate
+```
 
-- Altere `JWT_SECRET` para um valor seguro
+Acesse:
+- 🌐 Frontend: http://localhost
+- 🔌 Backend API: http://localhost:3001
+- 📊 Health Check: http://localhost:3001/health
+
+### ☁️ Deploy em Cloud - Railway (Recomendado) 🚂
+
+**Railway é a melhor opção** para esta aplicação! Veja o guia completo em **[DEPLOY.md](./DEPLOY.md)**.
+
+**Resumo rápido**:
+1. Criar projeto no [railway.app](https://railway.app)
+2. Adicionar PostgreSQL e Redis
+3. Deploy do backend, worker e frontend
+4. Configurar variáveis de ambiente
+5. Executar migrations
+
+**Vantagens do Railway**:
+- ✅ Tudo em um lugar (backend, worker, frontend, banco)
+- ✅ Deploy automático via Git
+- ✅ HTTPS automático
+- ✅ Plano gratuito generoso
+- ✅ Interface simples e intuitiva
+
+Para outras opções (Render, Heroku, Docker), consulte **[DEPLOY.md](./DEPLOY.md)**.
+
+### ⚠️ Importante para Deploy
+
+- Altere `JWT_SECRET` para um valor seguro (gere com: `openssl rand -base64 32`)
 - Use SSL/TLS em produção
-- Configure CORS adequadamente
-- Configure variáveis de ambiente corretamente
+- Configure CORS adequadamente (`FRONTEND_URL`)
+- Configure todas as variáveis de ambiente
 - Execute migrations: `npm run migrate`
-- Inicie o worker separadamente
+- Inicie o worker separadamente (necessário para processar campanhas)
 
 ## 🔐 Segurança
 

@@ -33,6 +33,14 @@ router.post(
       .optional()
       .isInt({ min: 10 })
       .withMessage('Message interval must be at least 10 seconds'),
+    body('pause_after_messages')
+      .optional({ nullable: true })
+      .isInt({ min: 1 })
+      .withMessage('pause_after_messages must be a positive integer when provided'),
+    body('pause_duration_seconds')
+      .optional({ nullable: true })
+      .isInt({ min: 10 })
+      .withMessage('pause_duration_seconds must be at least 10 seconds when provided'),
     validate
   ],
   campaignController.create

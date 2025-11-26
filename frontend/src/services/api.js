@@ -45,7 +45,7 @@ export const auth = {
 
 // Connections
 export const connections = {
-  list: () => api.get('/connections'),
+  list: (params) => api.get('/connections', { params }),
   sync: () => api.post('/connections/sync'),
   getOne: (id) => api.get(`/connections/${id}`),
   updateStatus: (id) => api.put(`/connections/${id}/status`),
@@ -59,7 +59,8 @@ export const templates = {
   getOne: (id) => api.get(`/templates/${id}`),
   create: (data) => api.post('/templates', data),
   update: (id, data) => api.put(`/templates/${id}`, data),
-  delete: (id) => api.delete(`/templates/${id}`)
+  delete: (id) => api.delete(`/templates/${id}`),
+  duplicate: (id, data) => api.post(`/templates/${id}/duplicate`, data)
 };
 
 // Campaigns
@@ -79,6 +80,19 @@ export const dashboard = {
   getMetrics: () => api.get('/dashboard/metrics'),
   getRecentCampaigns: (params) => api.get('/dashboard/recent-campaigns', { params }),
   getStats: (params) => api.get('/dashboard/stats', { params })
+};
+
+// Upload
+export const upload = {
+  uploadFile: (formData) => {
+    const token = localStorage.getItem('token');
+    return api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+  }
 };
 
 export default api;

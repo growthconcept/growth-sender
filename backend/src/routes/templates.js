@@ -23,7 +23,6 @@ router.post(
     body('message_type')
       .isIn(['text', 'image', 'audio', 'video', 'document'])
       .withMessage('Invalid message type'),
-    body('text_content').notEmpty().withMessage('Text content is required'),
     validate
   ],
   templateController.create
@@ -38,7 +37,16 @@ router.put(
       .optional()
       .isIn(['text', 'image', 'audio', 'video', 'document'])
       .withMessage('Invalid message type'),
-    body('text_content').optional().notEmpty().withMessage('Text content cannot be empty'),
+    body('text_content')
+      .optional({ nullable: true })
+      .custom((value, { req }) => {
+        if (req.body.message_type === 'text') {
+          if (!value || !String(value).trim()) {
+            throw new Error('Text content is required for text templates');
+          }
+        }
+        return true;
+      }),
     validate
   ],
   templateController.update
@@ -46,5 +54,8 @@ router.put(
 
 // Deletar template
 router.delete('/:id', templateController.delete);
+
+// Duplicar template
+router.post('/:id/duplicate', templateController.duplicate);
 
 export default router;

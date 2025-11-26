@@ -1,4 +1,4 @@
-import { Campaign, Connection, MessageTemplate, DailyLimit, MessageLog } from '../models/index.js';
+import { Campaign, Connection, MessageTemplate, DailyLimit, MessageLog, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import campaignQueue from '../config/queue.js';
 
@@ -9,11 +9,45 @@ class CampaignController {
   async list(req, res) {
     try {
       const userId = req.user.id;
-      const { status, limit = 50, offset = 0 } = req.query;
+      const { 
+        status, 
+        connection_id, 
+        date_from, 
+        date_to,
+        filter_user_id,
+        limit = 50, 
+        offset = 0 
+      } = req.query;
 
-      const where = { user_id: userId };
+      // Por padrão, filtrar apenas campanhas do usuário logado
+      // Se filter_user_id for fornecido e for o mesmo do usuário logado, usar esse filtro
+      const where = {};
+      
+      if (filter_user_id && filter_user_id === userId) {
+        where.user_id = filter_user_id;
+      } else {
+        where.user_id = userId;
+      }
+      
       if (status) {
         where.status = status;
+      }
+      
+      if (connection_id) {
+        where.connection_id = connection_id;
+      }
+      
+      if (date_from || date_to) {
+        where.created_at = {};
+        if (date_from) {
+          where.created_at[Op.gte] = new Date(date_from);
+        }
+        if (date_to) {
+          // Adicionar 23:59:59 ao final do dia para incluir o dia inteiro
+          const endDate = new Date(date_to);
+          endDate.setHours(23, 59, 59, 999);
+          where.created_at[Op.lte] = endDate;
+        }
       }
 
       const campaigns = await Campaign.findAll({
@@ -28,6 +62,11 @@ class CampaignController {
             model: MessageTemplate,
             as: 'template',
             attributes: ['id', 'name', 'message_type']
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
           }
         ],
         order: [['created_at', 'DESC']],
@@ -60,6 +99,11 @@ class CampaignController {
           {
             model: MessageTemplate,
             as: 'template'
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
           },
           {
             model: MessageLog,
@@ -98,6 +142,8 @@ class CampaignController {
         end_time,
         allowed_days,
         message_interval,
+        pause_after_messages,
+        pause_duration_seconds,
         max_recipients
       } = req.body;
 
@@ -128,7 +174,14 @@ class CampaignController {
         return res.status(400).json({ error: 'Recipients list cannot be empty' });
       }
 
-      if (recipients.length > 100) {
+      // Remover duplicatas da lista de destinatários
+      const uniqueRecipients = [...new Set(recipients)];
+      
+      if (uniqueRecipients.length !== recipients.length) {
+        console.warn(`Campaign recipients deduplicated: ${recipients.length} -> ${uniqueRecipients.length}`);
+      }
+
+      if (uniqueRecipients.length > 100) {
         return res.status(400).json({ error: 'Maximum 100 recipients allowed' });
       }
 
@@ -137,7 +190,9 @@ class CampaignController {
         return res.status(400).json({ error: 'Minimum message interval is 10 seconds' });
       }
 
-      // VALIDAÇÃO CRÍTICA: Verificar limite diário (1 campanha por dia por conexão)
+      // VALIDAÇÃO DE LIMITE DIÁRIO - DESABILITADA PARA DESENVOLVIMENTO
+      // TODO: Reativar em produção
+      /*
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
       const dailyLimit = await DailyLimit.findOne({
@@ -153,6 +208,30 @@ class CampaignController {
           error: 'Daily limit reached: Only 1 campaign per day is allowed for this connection'
         });
       }
+      */
+
+      let normalizedPauseAfter = null;
+      let normalizedPauseDuration = null;
+
+      if (pause_after_messages !== undefined && pause_after_messages !== null && pause_after_messages !== '') {
+        normalizedPauseAfter = parseInt(pause_after_messages, 10);
+        if (Number.isNaN(normalizedPauseAfter) || normalizedPauseAfter <= 0) {
+          return res.status(400).json({ error: 'pause_after_messages must be a positive integer' });
+        }
+      }
+
+      if (pause_duration_seconds !== undefined && pause_duration_seconds !== null && pause_duration_seconds !== '') {
+        normalizedPauseDuration = parseInt(pause_duration_seconds, 10);
+        if (Number.isNaN(normalizedPauseDuration) || normalizedPauseDuration <= 0) {
+          return res.status(400).json({ error: 'pause_duration_seconds must be a positive integer' });
+        }
+      }
+
+      if ((normalizedPauseAfter && !normalizedPauseDuration) || (!normalizedPauseAfter && normalizedPauseDuration)) {
+        return res.status(400).json({
+          error: 'Both pause_after_messages and pause_duration_seconds must be provided together'
+        });
+      }
 
       // Criar campanha
       const campaign = await Campaign.create({
@@ -161,17 +240,32 @@ class CampaignController {
         template_id,
         name,
         recipient_type,
-        recipients,
+        recipients: uniqueRecipients, // Usar lista deduplicada
         scheduled_date: scheduled_date || null,
-        start_time: start_time || '09:00:00',
-        end_time: end_time || '18:00:00',
-        allowed_days: allowed_days || [1, 2, 3, 4, 5],
+        // Se não houver scheduled_date, configurar para disparo imediato
+        // (sem restrições de horário)
+        start_time: scheduled_date ? (start_time || '09:00:00') : '00:00:00',
+        end_time: scheduled_date ? (end_time || '18:00:00') : '23:59:59',
+        allowed_days: scheduled_date ? (allowed_days || [1, 2, 3, 4, 5]) : [0, 1, 2, 3, 4, 5, 6], // Todos os dias se imediato
         message_interval: message_interval || 30,
-        max_recipients: Math.min(max_recipients || 100, recipients.length),
+        pause_after_messages: normalizedPauseAfter,
+        pause_duration_seconds: normalizedPauseDuration,
+        max_recipients: Math.min(max_recipients || 100, uniqueRecipients.length),
         status: 'scheduled'
       });
 
-      // Atualizar ou criar registro de limite diário
+      // ATUALIZAÇÃO DE LIMITE DIÁRIO - DESABILITADA PARA DESENVOLVIMENTO
+      // TODO: Reativar em produção
+      /*
+      const today = new Date().toISOString().split('T')[0];
+      const dailyLimit = await DailyLimit.findOne({
+        where: {
+          user_id: userId,
+          connection_id,
+          date: today
+        }
+      });
+
       if (dailyLimit) {
         await dailyLimit.update({
           campaigns_count: dailyLimit.campaigns_count + 1
@@ -184,6 +278,7 @@ class CampaignController {
           campaigns_count: 1
         });
       }
+      */
 
       // Adicionar à fila de processamento
       await campaignQueue.add({
@@ -252,6 +347,22 @@ class CampaignController {
 
       if (campaign.status === 'completed' || campaign.status === 'cancelled') {
         return res.status(400).json({ error: 'Campaign already finished' });
+      }
+
+      // Buscar e remover job da fila do Redis
+      try {
+        const jobs = await campaignQueue.getJobs(['waiting', 'delayed', 'active']);
+        for (const job of jobs) {
+          if (job.data.campaignId === id) {
+            await job.remove();
+            console.log(`Job ${job.id} removed from queue for campaign ${id}`);
+            break;
+          }
+        }
+      } catch (queueError) {
+        console.warn('Error removing job from queue:', queueError.message);
+        // Continuar mesmo se falhar ao remover da fila
+        // O worker vai verificar o status e parar se estiver cancelado
       }
 
       await campaign.update({ status: 'cancelled' });

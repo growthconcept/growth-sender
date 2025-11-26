@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { sequelize } from './models/index.js';
 
 // Importar rotas
@@ -9,6 +12,10 @@ import connectionRoutes from './routes/connections.js';
 import templateRoutes from './routes/templates.js';
 import campaignRoutes from './routes/campaigns.js';
 import dashboardRoutes from './routes/dashboard.js';
+import uploadRoutes from './routes/upload.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -16,18 +23,38 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
+// Configurar CORS - suporta múltiplas origens separadas por vírgula
+const corsOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permitir requisições sem origin (mobile apps, Postman, etc) em desenvolvimento
+    if (!origin && process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    // Verificar se a origin está na lista permitida
+    if (corsOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Servir arquivos estáticos (uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Rota de saúde
@@ -48,7 +75,8 @@ app.get('/', (req, res) => {
       connections: '/api/connections',
       templates: '/api/templates',
       campaigns: '/api/campaigns',
-      dashboard: '/api/dashboard'
+      dashboard: '/api/dashboard',
+      upload: '/api/upload'
     }
   });
 });
@@ -75,7 +103,7 @@ async function startServer() {
 
     // Sincronizar models (em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false });
+      await sequelize.sync({ alter: true });
       console.log('✓ Database models synchronized');
     }
 

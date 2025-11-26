@@ -72,6 +72,14 @@ const Campaign = sequelize.define('Campaign', {
     allowNull: false,
     defaultValue: 30 // segundos
   },
+  pause_after_messages: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  pause_duration_seconds: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
   max_recipients: {
     type: DataTypes.INTEGER,
     allowNull: false,
