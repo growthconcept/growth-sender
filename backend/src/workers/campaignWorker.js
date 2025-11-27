@@ -165,26 +165,29 @@ async function generatePresignedUrl(mediaUrl) {
   if (!s3Client || !process.env.S3_BUCKET) {
     return null;
   }
-
   const decodedUrl = decodeSharedObjectUrl(mediaUrl);
   const targetUrl = decodedUrl || mediaUrl;
   const objectKey = resolveS3ObjectKey(targetUrl);
   if (!objectKey) {
     return null;
   }
-
   const expiresIn = Number.parseInt(process.env.S3_SIGNED_URL_EXPIRES || '43200', 10);
-
   try {
     const command = new GetObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: objectKey
     });
-
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: Number.isNaN(expiresIn) ? 43200 : expiresIn
     });
-
+    
+    // Substituir endpoint privado pelo público
+    if (process.env.S3_PUBLIC_URL && process.env.S3_ENDPOINT) {
+      const privateEndpoint = process.env.S3_ENDPOINT.replace(/\/$/, '');
+      const publicEndpoint = process.env.S3_PUBLIC_URL.replace(/\/$/, '');
+      return signedUrl.replace(privateEndpoint, publicEndpoint);
+    }
+    
     return signedUrl;
   } catch (error) {
     console.warn('Falha ao gerar URL assinada para mídia:', error?.message || error);
