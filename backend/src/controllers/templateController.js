@@ -6,6 +6,10 @@ class TemplateController {
    */
   async list(req, res) {
     try {
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
       const userId = req.user.id;
 
       const templates = await MessageTemplate.findAll({
@@ -16,7 +20,11 @@ class TemplateController {
       res.json({ templates });
     } catch (error) {
       console.error('List templates error:', error);
-      res.status(500).json({ error: 'Failed to list templates' });
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Failed to list templates',
+        message: error.message 
+      });
     }
   }
 
