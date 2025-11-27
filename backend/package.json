@@ -1,7 +1,7 @@
 {
-  "name": "whatsapp-sender-backend",
+  "name": "growth-sender-backend",
   "version": "1.0.0",
-  "description": "Backend para gerenciamento de disparos em massa via WhatsApp",
+  "description": "Backend para Growth Sender - Sistema de gerenciamento de disparos em massa via WhatsApp",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

@@ -4,7 +4,8 @@ import campaignQueue from '../config/queue.js';
 
 class CampaignController {
   /**
-   * Lista todas as campanhas do usuário
+   * Lista todas as campanhas (de todos os usuários)
+   * Permite filtrar por user_id opcionalmente
    */
   async list(req, res) {
     try {
@@ -19,14 +20,11 @@ class CampaignController {
         offset = 0 
       } = req.query;
 
-      // Por padrão, filtrar apenas campanhas do usuário logado
-      // Se filter_user_id for fornecido e for o mesmo do usuário logado, usar esse filtro
+      // Permitir ver todas as campanhas, mas opcionalmente filtrar por user_id
       const where = {};
       
-      if (filter_user_id && filter_user_id === userId) {
+      if (filter_user_id) {
         where.user_id = filter_user_id;
-      } else {
-        where.user_id = userId;
       }
       
       if (status) {
@@ -82,15 +80,14 @@ class CampaignController {
   }
 
   /**
-   * Busca uma campanha específica
+   * Busca uma campanha específica (de qualquer usuário)
    */
   async getOne(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
 
       const campaign = await Campaign.findOne({
-        where: { id, user_id: userId },
+        where: { id },
         include: [
           {
             model: Connection,
@@ -160,9 +157,9 @@ class CampaignController {
         return res.status(400).json({ error: 'Connection is not active' });
       }
 
-      // Validar template
+      // Validar template (pode ser de qualquer usuário)
       const template = await MessageTemplate.findOne({
-        where: { id: template_id, user_id: userId }
+        where: { id: template_id }
       });
 
       if (!template) {
@@ -415,17 +412,16 @@ class CampaignController {
   }
 
   /**
-   * Busca logs de uma campanha
+   * Busca logs de uma campanha (de qualquer usuário)
    */
   async getLogs(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
       const { limit = 100, offset = 0 } = req.query;
 
-      // Verificar se campanha pertence ao usuário
+      // Verificar se campanha existe
       const campaign = await Campaign.findOne({
-        where: { id, user_id: userId }
+        where: { id }
       });
 
       if (!campaign) {
@@ -447,15 +443,19 @@ class CampaignController {
   }
 
   /**
-   * Deleta uma campanha
+   * Deleta uma campanha (apenas admins)
    */
   async delete(req, res) {
     try {
+      // Verificar se usuário é admin
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required to delete campaigns' });
+      }
+
       const { id } = req.params;
-      const userId = req.user.id;
 
       const campaign = await Campaign.findOne({
-        where: { id, user_id: userId }
+        where: { id }
       });
 
       if (!campaign) {

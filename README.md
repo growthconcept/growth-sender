@@ -1,4 +1,4 @@
-# WhatsApp Bulk Sender
+# Growth Sender
 
 Sistema completo de gerenciamento de disparos em massa via WhatsApp usando Evolution API.
 

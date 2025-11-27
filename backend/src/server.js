@@ -68,7 +68,7 @@ app.get('/health', (req, res) => {
 // Rota raiz
 app.get('/', (req, res) => {
   res.json({
-    message: 'WhatsApp Bulk Sender API',
+    message: 'Growth Sender API',
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
