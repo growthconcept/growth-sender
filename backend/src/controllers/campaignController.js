@@ -4,8 +4,7 @@ import campaignQueue from '../config/queue.js';
 
 class CampaignController {
   /**
-   * Lista todas as campanhas (de todos os usuários)
-   * Permite filtrar por user_id opcionalmente
+   * Lista todas as campanhas do usuário
    */
   async list(req, res) {
     try {
@@ -15,17 +14,14 @@ class CampaignController {
         connection_id, 
         date_from, 
         date_to,
-        filter_user_id,
         limit = 50, 
         offset = 0 
       } = req.query;
 
-      // Permitir ver todas as campanhas, mas opcionalmente filtrar por user_id
-      const where = {};
-      
-      if (filter_user_id) {
-        where.user_id = filter_user_id;
-      }
+      // Filtrar apenas campanhas do usuário logado
+      const where = {
+        user_id: userId
+      };
       
       if (status) {
         where.status = status;
@@ -80,14 +76,15 @@ class CampaignController {
   }
 
   /**
-   * Busca uma campanha específica (de qualquer usuário)
+   * Busca uma campanha específica
    */
   async getOne(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user.id;
 
       const campaign = await Campaign.findOne({
-        where: { id },
+        where: { id, user_id: userId },
         include: [
           {
             model: Connection,
@@ -157,9 +154,9 @@ class CampaignController {
         return res.status(400).json({ error: 'Connection is not active' });
       }
 
-      // Validar template (pode ser de qualquer usuário)
+      // Validar template
       const template = await MessageTemplate.findOne({
-        where: { id: template_id }
+        where: { id: template_id, user_id: userId }
       });
 
       if (!template) {
@@ -412,16 +409,17 @@ class CampaignController {
   }
 
   /**
-   * Busca logs de uma campanha (de qualquer usuário)
+   * Busca logs de uma campanha
    */
   async getLogs(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user.id;
       const { limit = 100, offset = 0 } = req.query;
 
-      // Verificar se campanha existe
+      // Verificar se campanha pertence ao usuário
       const campaign = await Campaign.findOne({
-        where: { id }
+        where: { id, user_id: userId }
       });
 
       if (!campaign) {

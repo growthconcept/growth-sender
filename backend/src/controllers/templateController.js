@@ -2,20 +2,14 @@ import { MessageTemplate } from '../models/index.js';
 
 class TemplateController {
   /**
-   * Lista todos os templates (de todos os usuários)
-   * Permite filtrar por user_id opcionalmente via query param
+   * Lista todos os templates do usuário
    */
   async list(req, res) {
     try {
-      const { filter_user_id } = req.query;
-
-      const where = {};
-      if (filter_user_id) {
-        where.user_id = filter_user_id;
-      }
+      const userId = req.user.id;
 
       const templates = await MessageTemplate.findAll({
-        where,
+        where: { user_id: userId },
         order: [['created_at', 'DESC']]
       });
 
@@ -27,14 +21,15 @@ class TemplateController {
   }
 
   /**
-   * Busca um template específico (de qualquer usuário)
+   * Busca um template específico
    */
   async getOne(req, res) {
     try {
       const { id } = req.params;
+      const userId = req.user.id;
 
       const template = await MessageTemplate.findOne({
-        where: { id }
+        where: { id, user_id: userId }
       });
 
       if (!template) {
