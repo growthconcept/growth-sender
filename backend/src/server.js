@@ -42,16 +42,13 @@ const normalizeOrigin = (url) => {
 // Normalizar todas as origens permitidas
 const normalizedOrigins = corsOrigins.map(normalizeOrigin);
 
+console.log('🔒 CORS Origins configurados:', normalizedOrigins);
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requisições sem origin (mobile apps, Postman, etc) em desenvolvimento
-    if (!origin && process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
-    
-    // Se não há origin, rejeitar em produção
+    // Permitir requisições sem origin (mobile apps, Postman, healthchecks)
     if (!origin) {
-      return callback(new Error('Not allowed by CORS: No origin provided'));
+      return callback(null, true);
     }
     
     // Normalizar a origin recebida
@@ -61,8 +58,8 @@ app.use(cors({
     if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked: ${origin} (normalized: ${normalizedOrigin})`);
-      console.warn(`Allowed origins: ${normalizedOrigins.join(', ')}`);
+      console.warn(`❌ CORS blocked: ${origin} (normalized: ${normalizedOrigin})`);
+      console.warn(`📋 Allowed origins: ${normalizedOrigins.join(', ')}`);
       callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
@@ -70,6 +67,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
