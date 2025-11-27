@@ -25,8 +25,22 @@ const PORT = process.env.PORT || 3001;
 // Middlewares
 // Configurar CORS - suporta múltiplas origens separadas por vírgula
 const corsOrigins = process.env.FRONTEND_URL 
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
+
+// Função para normalizar URL (remove trailing slash e normaliza)
+const normalizeOrigin = (url) => {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.protocol}//${urlObj.host}`;
+  } catch {
+    return url.replace(/\/$/, '');
+  }
+};
+
+// Normalizar todas as origens permitidas
+const normalizedOrigins = corsOrigins.map(normalizeOrigin);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -34,14 +48,27 @@ app.use(cors({
     if (!origin && process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    // Em outros ambientes, só permitir se a origin existir e estiver na lista permitida
-    if (origin && corsOrigins.includes(origin)) {
+    
+    // Se não há origin, rejeitar em produção
+    if (!origin) {
+      return callback(new Error('Not allowed by CORS: No origin provided'));
+    }
+    
+    // Normalizar a origin recebida
+    const normalizedOrigin = normalizeOrigin(origin);
+    
+    // Verificar se a origin normalizada está na lista permitida
+    if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`CORS blocked: ${origin} (normalized: ${normalizedOrigin})`);
+      console.warn(`Allowed origins: ${normalizedOrigins.join(', ')}`);
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
