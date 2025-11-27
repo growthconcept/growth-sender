@@ -69,8 +69,8 @@ class UploadController {
       await s3Client.send(putCommand);
 
       const storageBaseUrl =
-        process.env.S3_ENDPOINT ||
         process.env.S3_PUBLIC_URL ||
+        process.env.S3_ENDPOINT ||
         `https://${process.env.S3_BUCKET}.s3.amazonaws.com`;
 
       const normalizedBase = storageBaseUrl.replace(/\/$/, '');
