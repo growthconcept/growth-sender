@@ -34,8 +34,8 @@ app.use(cors({
     if (!origin && process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    // Verificar se a origin está na lista permitida
-    if (corsOrigins.includes(origin) || !origin) {
+    // Em outros ambientes, só permitir se a origin existir e estiver na lista permitida
+    if (origin && corsOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
