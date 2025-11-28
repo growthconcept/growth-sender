@@ -142,7 +142,8 @@ app.get('/', (req, res) => {
 // Tratamento de erros 404
 app.use((req, res) => {
   addCorsHeaders(req, res);
-  res.status(404).json({ error: 'Route not found' });
+  console.warn(`⚠️  404 - Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({ error: 'Route not found', path: req.path, method: req.method });
 });
 
 // Tratamento de erros global
