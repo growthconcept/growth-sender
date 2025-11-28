@@ -121,8 +121,9 @@ app.options('*', (req, res) => {
   res.status(204).end();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Configurar body parsers com limite aumentado
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
 // Servir arquivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -170,10 +171,61 @@ app.use((req, res) => {
 // Tratamento de erros global
 app.use((err, req, res, next) => {
   addCorsHeaders(req, res);
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error'
+  
+  // Log do erro
+  console.error('Error:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.status || err.statusCode,
+    code: err.code,
+    type: err.type,
+    path: req.path,
+    method: req.method
   });
+
+  // Se já foi enviada uma resposta, não enviar novamente
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  // Tratamento específico para erros de payload muito grande do Express
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Payload muito grande',
+      message: 'O tamanho da requisição excede o limite máximo permitido de 200MB',
+      maxSize: 200,
+      maxSizeBytes: 200 * 1024 * 1024,
+      code: 'PAYLOAD_TOO_LARGE'
+    });
+  }
+
+  // Tratamento para erros de parsing JSON
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      error: 'Erro ao processar requisição',
+      message: 'O corpo da requisição é inválido ou muito grande',
+      code: 'INVALID_BODY'
+    });
+  }
+
+  // Status code padrão
+  const statusCode = err.status || err.statusCode || 500;
+
+  // Resposta de erro
+  const errorResponse = {
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: err.stack,
+      details: {
+        code: err.code,
+        type: err.type,
+        path: req.path,
+        method: req.method
+      }
+    })
+  };
+
+  res.status(statusCode).json(errorResponse);
 });
 
 // Inicializar servidor
