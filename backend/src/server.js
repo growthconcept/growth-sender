@@ -82,23 +82,44 @@ const corsOptions = {
   maxAge: 86400 // 24 horas
 };
 
+// Aplicar CORS ANTES de tudo - ordem é crítica!
 app.use(cors(corsOptions));
 
-// Middleware adicional para garantir headers CORS em todas as respostas
+// Middleware que SEMPRE adiciona headers CORS em TODAS as requisições
 app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Se a origin está na lista permitida, sempre adicionar headers
+  if (origin) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
+      // Adicionar headers CORS em TODA resposta
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Authorization');
+    }
+  }
+  
+  next();
+});
+
+// Handler explícito para requisições OPTIONS (preflight) - DEVE vir antes das rotas
+app.options('*', (req, res) => {
   const origin = req.headers.origin;
   if (origin) {
     const normalizedOrigin = normalizeOrigin(origin);
     if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.setHeader('Access-Control-Max-Age', '86400');
     }
   }
-  next();
+  res.status(204).end();
 });
-
-// Handler explícito para requisições OPTIONS (preflight)
-app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
