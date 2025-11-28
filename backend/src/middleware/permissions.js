@@ -20,3 +20,18 @@ export const isAdmin = (user) => {
   return user && user.role === 'admin';
 };
 
+/**
+ * Helper para verificar se usuário é supervisor
+ */
+export const isSupervisor = (user) => {
+  return user && user.role === 'supervisor';
+};
+
+/**
+ * Helper para verificar se usuário é admin OU supervisor
+ * (para acessos de leitura global, por exemplo)
+ */
+export const isPrivilegedViewer = (user) => {
+  return user && (user.role === 'admin' || user.role === 'supervisor');
+};
+

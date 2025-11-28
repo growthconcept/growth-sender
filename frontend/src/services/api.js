@@ -95,4 +95,16 @@ export const upload = {
   }
 };
 
+// Admin
+export const admin = {
+  // Gestão de usuários
+  listUsers: (params) => api.get('/admin/users', { params }),
+  updateUserRole: (id, role) => api.patch(`/admin/users/${id}/role`, { role }),
+  
+  // Métricas
+  getGlobalMetrics: () => api.get('/admin/metrics/global'),
+  getUserMetrics: (params) => api.get('/admin/metrics/users', { params }),
+  getUsageStats: (params) => api.get('/admin/metrics/stats', { params })
+};
+
 export default api;

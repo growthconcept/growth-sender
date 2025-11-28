@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Link as LinkIcon, FileText, Send, History } from 'lucide-react';
+import { LayoutDashboard, Link as LinkIcon, FileText, Send, History, Shield } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const menuItems = [
   {
@@ -27,16 +28,28 @@ const menuItems = [
     title: 'Histórico',
     href: '/history',
     icon: History
+  },
+  {
+    title: 'Administração',
+    href: '/admin',
+    icon: Shield,
+    adminOnly: true
   }
 ];
 
 export default function Sidebar() {
   const location = useLocation();
+  const { user } = useAuth();
 
   return (
     <aside className="w-64 border-r bg-white h-[calc(100vh-4rem)]">
       <nav className="p-4 space-y-2">
         {menuItems.map((item) => {
+          // Ocultar itens admin-only para não-admins
+          if (item.adminOnly && user?.role !== 'admin') {
+            return null;
+          }
+
           const Icon = item.icon;
           const isActive = location.pathname === item.href;
 

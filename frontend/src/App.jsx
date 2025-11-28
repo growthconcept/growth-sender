@@ -11,6 +11,7 @@ import Connections from '@/pages/Connections';
 import Templates from '@/pages/Templates';
 import Campaigns from '@/pages/Campaigns';
 import History from '@/pages/History';
+import Admin from '@/pages/Admin';
 
 // Layout
 import Navbar from '@/components/layout/Navbar';
@@ -39,6 +40,29 @@ function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+// Admin Only Route Component
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -123,6 +147,16 @@ function AppRoutes() {
               <History />
             </AppLayout>
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AppLayout>
+              <Admin />
+            </AppLayout>
+          </AdminRoute>
         }
       />
 

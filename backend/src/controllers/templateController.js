@@ -1,4 +1,5 @@
 import { MessageTemplate } from '../models/index.js';
+import { isPrivilegedViewer } from '../middleware/permissions.js';
 
 class TemplateController {
   /**
@@ -13,7 +14,7 @@ class TemplateController {
       const userId = req.user.id;
 
       const templates = await MessageTemplate.findAll({
-        where: { user_id: userId },
+        where: isPrivilegedViewer(req.user) ? {} : { user_id: userId },
         order: [['created_at', 'DESC']]
       });
 
@@ -36,8 +37,13 @@ class TemplateController {
       const { id } = req.params;
       const userId = req.user.id;
 
+      const where = { id };
+      if (!isPrivilegedViewer(req.user)) {
+        where.user_id = userId;
+      }
+
       const template = await MessageTemplate.findOne({
-        where: { id, user_id: userId }
+        where
       });
 
       if (!template) {

@@ -1,6 +1,7 @@
 import { Campaign, Connection, MessageTemplate, DailyLimit, MessageLog, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import campaignQueue from '../config/queue.js';
+import { isPrivilegedViewer } from '../middleware/permissions.js';
 
 class CampaignController {
   /**
@@ -18,10 +19,13 @@ class CampaignController {
         offset = 0 
       } = req.query;
 
-      // Filtrar apenas campanhas do usuário logado
-      const where = {
-        user_id: userId
-      };
+      const where = {};
+
+      // Admin e supervisor: podem ver campanhas de todos os usuários
+      // Usuário comum: apenas as próprias campanhas
+      if (!isPrivilegedViewer(req.user)) {
+        where.user_id = userId;
+      }
       
       if (status) {
         where.status = status;
@@ -83,8 +87,13 @@ class CampaignController {
       const { id } = req.params;
       const userId = req.user.id;
 
+      const where = { id };
+      if (!isPrivilegedViewer(req.user)) {
+        where.user_id = userId;
+      }
+
       const campaign = await Campaign.findOne({
-        where: { id, user_id: userId },
+        where,
         include: [
           {
             model: Connection,
@@ -417,10 +426,14 @@ class CampaignController {
       const userId = req.user.id;
       const { limit = 100, offset = 0 } = req.query;
 
-      // Verificar se campanha pertence ao usuário
-      const campaign = await Campaign.findOne({
-        where: { id, user_id: userId }
-      });
+      // Verificar se campanha pertence ao usuário (usuário comum)
+      // ou apenas se existe (admin/supervisor)
+      const where = { id };
+      if (!isPrivilegedViewer(req.user)) {
+        where.user_id = userId;
+      }
+
+      const campaign = await Campaign.findOne({ where });
 
       if (!campaign) {
         return res.status(404).json({ error: 'Campaign not found' });

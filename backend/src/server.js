@@ -13,6 +13,7 @@ import templateRoutes from './routes/templates.js';
 import campaignRoutes from './routes/campaigns.js';
 import dashboardRoutes from './routes/dashboard.js';
 import uploadRoutes from './routes/upload.js';
+import adminRoutes from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -81,6 +82,7 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Rota de saúde
 app.get('/health', (req, res) => {
