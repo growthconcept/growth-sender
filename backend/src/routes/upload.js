@@ -5,6 +5,12 @@ import { addCorsHeaders } from '../middleware/cors.js';
 
 const router = express.Router();
 
+// Middleware para SEMPRE adicionar headers CORS antes de qualquer processamento
+router.use((req, res, next) => {
+  addCorsHeaders(req, res);
+  next();
+});
+
 // Todas as rotas requerem autenticação
 router.use(authenticate);
 
