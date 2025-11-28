@@ -16,7 +16,8 @@ import {
   Music,
   File,
   X,
-  Copy
+  Copy,
+  Loader2
 } from 'lucide-react';
 import FileUpload from '@/components/ui/FileUpload';
 import FeedbackBanner from '@/components/FeedbackBanner';
@@ -67,6 +68,7 @@ export default function Templates() {
     media_url: '',
     preview_url: ''
   });
+  const [isUploading, setIsUploading] = useState(false);
   const { feedback, showFeedback, dismissFeedback } = useFeedback();
   const { toast } = useToast();
   const [duplicateDialog, setDuplicateDialog] = useState({
@@ -159,6 +161,7 @@ export default function Templates() {
       media_url: '',
       preview_url: ''
     });
+    setIsUploading(false);
   };
 
   const handleEdit = (template) => {
@@ -182,9 +185,15 @@ export default function Templates() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Validação
+    // Validação - CRÍTICO: Verificar se está fazendo upload
+    if (isUploading) {
+      showFeedback('error', 'Aguarde o upload do arquivo terminar antes de criar o template');
+      return;
+    }
+
+    // Validação - Verificar se precisa de mídia e se tem URL
     if (formData.message_type !== 'text' && !formData.media_url) {
-      showFeedback('error', 'URL da mídia é obrigatória para tipos que não são texto');
+      showFeedback('error', 'Por favor, faça upload do arquivo de mídia primeiro');
       return;
     }
 
@@ -196,6 +205,40 @@ export default function Templates() {
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  // Handler para quando o upload começa
+  const handleUploadStart = () => {
+    setIsUploading(true);
+  };
+
+  // Handler para quando o upload termina (sucesso ou erro)
+  const handleUploadComplete = (url, preview) => {
+    setIsUploading(false);
+    if (url) {
+      setFormData((prev) => ({
+        ...prev,
+        media_url: url,
+        preview_url: preview || url
+      }));
+    } else {
+      // Arquivo foi removido
+      setFormData((prev) => ({
+        ...prev,
+        media_url: '',
+        preview_url: ''
+      }));
+    }
+  };
+
+  // Handler para quando o upload falha
+  const handleUploadError = () => {
+    setIsUploading(false);
+    setFormData((prev) => ({
+      ...prev,
+      media_url: '',
+      preview_url: ''
+    }));
   };
 
   const handleDeleteClick = (template) => {
@@ -296,11 +339,17 @@ export default function Templates() {
                   className="w-full px-3 py-2 border rounded-md"
                   value={formData.message_type}
                   onChange={(e) => {
+                    const newType = e.target.value;
                     setFormData({ 
                       ...formData, 
-                      message_type: e.target.value,
-                      media_url: e.target.value === 'text' ? '' : formData.media_url
+                      message_type: newType,
+                      media_url: newType === 'text' ? '' : formData.media_url,
+                      preview_url: newType === 'text' ? '' : formData.preview_url
                     });
+                    // Resetar estado de upload quando mudar o tipo
+                    if (newType === 'text') {
+                      setIsUploading(false);
+                    }
                   }}
                   required
                 >
@@ -335,13 +384,9 @@ export default function Templates() {
                 <div>
                   <Label htmlFor="media_url">Mídia *</Label>
                   <FileUpload
-                    onFileUploaded={(url, preview) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        media_url: url,
-                        preview_url: preview || url
-                      }))
-                    }
+                    onFileUploaded={handleUploadComplete}
+                    onUploadStart={handleUploadStart}
+                    onUploadError={handleUploadError}
                     messageType={formData.message_type}
                     accept={
                       formData.message_type === 'image' ? 'image/*' :
@@ -353,9 +398,20 @@ export default function Templates() {
                     initialMimeType={mimeByType[formData.message_type]}
                     initialName={formData.media_url ? formData.media_url.split('/').pop() : ''}
                   />
-                  {formData.media_url && (
+                  {isUploading && (
+                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Enviando arquivo...
+                    </p>
+                  )}
+                  {!isUploading && formData.media_url && (
+                    <p className="text-xs text-green-600 mt-2">
+                      ✓ Arquivo carregado com sucesso
+                    </p>
+                  )}
+                  {!isUploading && !formData.media_url && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Arquivo carregado com sucesso
+                      Selecione um arquivo para fazer upload
                     </p>
                   )}
                 </div>
@@ -364,13 +420,25 @@ export default function Templates() {
               <div className="flex gap-2">
                 <Button 
                   type="submit" 
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || 
+                    updateMutation.isPending || 
+                    isUploading || 
+                    (formData.message_type !== 'text' && !formData.media_url)
+                  }
                 >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? 'Salvando...'
-                    : editingTemplate
-                    ? 'Atualizar'
-                    : 'Criar'}
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando arquivo...
+                    </>
+                  ) : createMutation.isPending || updateMutation.isPending ? (
+                    'Salvando...'
+                  ) : editingTemplate ? (
+                    'Atualizar'
+                  ) : (
+                    'Criar Template'
+                  )}
                 </Button>
                 <Button
                   type="button"

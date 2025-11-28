@@ -11,6 +11,8 @@ const typeIcons = {
 
 export default function FileUpload({ 
   onFileUploaded, 
+  onUploadStart,
+  onUploadError,
   accept = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx',
   maxSize = 50 * 1024 * 1024, // 50MB
   messageType = 'image',
@@ -109,6 +111,11 @@ export default function FileUpload({
     });
 
     setUploading(true);
+    
+    // Notificar que o upload começou
+    if (onUploadStart) {
+      onUploadStart();
+    }
 
     try {
       const formData = new FormData();
@@ -149,6 +156,18 @@ export default function FileUpload({
     } catch (err) {
       console.error('Upload error:', err);
       setError(err.message || 'Erro ao fazer upload do arquivo');
+      
+      // Notificar que o upload falhou
+      if (onUploadError) {
+        onUploadError();
+      }
+      
+      // Limpar arquivo em caso de erro
+      setUploadedFile(null);
+      if (lastObjectUrlRef.current) {
+        URL.revokeObjectURL(lastObjectUrlRef.current);
+        lastObjectUrlRef.current = null;
+      }
     } finally {
       setUploading(false);
     }
@@ -157,6 +176,7 @@ export default function FileUpload({
   const handleRemove = () => {
     setUploadedFile(null);
     setError(null);
+    setUploading(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -166,6 +186,10 @@ export default function FileUpload({
     }
     if (onFileUploaded) {
       onFileUploaded('', null);
+    }
+    // Notificar que o upload foi cancelado/removido
+    if (onUploadError) {
+      onUploadError();
     }
   };
 
