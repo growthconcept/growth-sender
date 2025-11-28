@@ -125,13 +125,20 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     // Testar conexão com banco de dados
+    console.log('🔄 Testing database connection...');
     await sequelize.authenticate();
     console.log('✓ Database connection established successfully');
 
     // Sincronizar models (em desenvolvimento)
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('✓ Database models synchronized');
+      try {
+        console.log('🔄 Synchronizing database models...');
+        await sequelize.sync({ alter: true });
+        console.log('✓ Database models synchronized');
+      } catch (syncError) {
+        console.warn('⚠️  Database sync warning (continuing anyway):', syncError.message);
+        // Não bloquear o servidor se o sync falhar
+      }
     }
 
     // Iniciar servidor
@@ -140,8 +147,23 @@ async function startServer() {
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`✓ API URL: http://localhost:${PORT}`);
     });
+
+    // Tratamento de erros não capturados
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('✗ Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+
+    process.on('uncaughtException', (error) => {
+      console.error('✗ Uncaught Exception:', error);
+      // Não encerrar o processo imediatamente, apenas logar
+    });
   } catch (error) {
     console.error('✗ Failed to start server:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     process.exit(1);
   }
 }
