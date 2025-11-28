@@ -28,7 +28,7 @@ const MessageTemplate = sequelize.define('MessageTemplate', {
     allowNull: false
   },
   media_url: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true
   }
 }, {
