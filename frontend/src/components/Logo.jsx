@@ -6,20 +6,21 @@ export default function Logo({ className = "h-8 w-8", color = "#22c55e" }) {
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Balão de fala */}
+      {/* Balão de fala circular com cauda */}
+      <circle cx="32" cy="28" r="20" fill={color} />
+      {/* Cauda do balão apontando para baixo-esquerda */}
       <path
-        d="M32 8C18.745 8 8 18.745 8 32c0 4.418 1.175 8.56 3.22 12.14L4 56l12.86-7.22C20.44 50.825 24.582 52 29 52c13.255 0 24-10.745 24-24S45.255 8 32 8z"
+        d="M16 44 L8 56 L20 52 Z"
         fill={color}
-        stroke={color}
-        strokeWidth="2"
       />
-      {/* Letra G estilizada */}
+      {/* Letra G estilizada - design moderno com curvas suaves */}
       <path
-        d="M28 20h8c4.418 0 8 3.582 8 8v8c0 4.418-3.582 8-8 8h-4v-4h4c2.209 0 4-1.791 4-4v-8c0-2.209-1.791-4-4-4h-8v16h-4V20z"
+        d="M28 20 L38 20 Q42 20 42 24 L42 28 Q42 32 38 32 L34 32 L34 30 L38 30 Q40 30 40 28 L40 24 Q40 22 38 22 L28 22 L28 36 Q28 38 30 38 L36 38 Q38 38 38 36 L36 36 Q34 36 34 34 L30 34 Q28 34 28 36 L28 20 Z"
         fill="white"
       />
+      {/* Barra horizontal interna do G */}
       <path
-        d="M32 28h4v4h-4v-4z"
+        d="M30 28 L34 28 L34 30 L30 30 Z"
         fill={color}
       />
     </svg>
