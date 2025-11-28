@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Balão de fala -->
+  <path
+    d="M32 8C18.745 8 8 18.745 8 32c0 4.418 1.175 8.56 3.22 12.14L4 56l12.86-7.22C20.44 50.825 24.582 52 29 52c13.255 0 24-10.745 24-24S45.255 8 32 8z"
+    fill="#22c55e"
+    stroke="#22c55e"
+    stroke-width="2"
+  />
+  <!-- Letra G estilizada -->
+  <path
+    d="M28 20h8c4.418 0 8 3.582 8 8v8c0 4.418-3.582 8-8 8h-4v-4h4c2.209 0 4-1.791 4-4v-8c0-2.209-1.791-4-4-4h-8v16h-4V20z"
+    fill="white"
+  />
+  <path
+    d="M32 28h4v4h-4v-4z"
+    fill="#22c55e"
+  />
+</svg>
+
