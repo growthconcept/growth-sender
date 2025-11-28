@@ -69,7 +69,28 @@ class AdminUserController {
       });
     } catch (error) {
       console.error('[Admin] updateUserRole error:', error);
-      res.status(500).json({ error: 'Failed to update user role' });
+      console.error('[Admin] Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      // Verificar se é erro de ENUM/coluna
+      if (error.message && (
+        error.message.includes('column') || 
+        error.message.includes('enum') ||
+        error.message.includes('invalid input value')
+      )) {
+        return res.status(500).json({ 
+          error: 'Database schema error. Please run migration: npm run migrate',
+          details: error.message
+        });
+      }
+      
+      res.status(500).json({ 
+        error: 'Failed to update user role',
+        details: error.message 
+      });
     }
   }
 }
