@@ -206,7 +206,8 @@ app.use((err, req, res, next) => {
   }
 
   // Tratamento para erros de parsing JSON
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+  // Erros de parsing JSON do express.json() são SyntaxError com status 400
+  if (err instanceof SyntaxError && err.status === 400) {
     return res.status(400).json({
       error: 'Erro ao processar requisição',
       message: 'O corpo da requisição é inválido ou muito grande',
