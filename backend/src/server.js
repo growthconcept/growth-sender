@@ -121,9 +121,9 @@ app.options('*', (req, res) => {
   res.status(204).end();
 });
 
-// Configurar body parsers com limite aumentado
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+// Configurar body parsers com limite aumentado (500MB para documentos)
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
 // Servir arquivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -192,9 +192,15 @@ app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
     return res.status(413).json({
       error: 'Payload muito grande',
-      message: 'O tamanho da requisição excede o limite máximo permitido de 200MB',
-      maxSize: 200,
-      maxSizeBytes: 200 * 1024 * 1024,
+      message: 'O tamanho da requisição excede o limite máximo permitido. Limites: Imagens e vídeos: 50MB | Documentos: 500MB',
+      maxSize: 500,
+      maxSizeBytes: 500 * 1024 * 1024,
+      limits: {
+        image: 50,
+        video: 50,
+        document: 500,
+        audio: 50
+      },
       code: 'PAYLOAD_TOO_LARGE'
     });
   }

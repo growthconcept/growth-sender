@@ -28,14 +28,37 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Configurar multer
+// Limites de tamanho por tipo de arquivo
+const FILE_SIZE_LIMITS = {
+  image: 50 * 1024 * 1024,      // 50MB para imagens
+  video: 50 * 1024 * 1024,      // 50MB para vídeos
+  document: 500 * 1024 * 1024,  // 500MB para documentos
+  audio: 50 * 1024 * 1024       // 50MB para áudios
+};
+
+// Configurar multer com limite máximo de 500MB (para documentos)
 export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 200 * 1024 * 1024 // 200MB (deve corresponder ao limite do Nginx)
+    fileSize: 500 * 1024 * 1024 // 500MB (limite máximo para documentos)
   }
 });
+
+// Função auxiliar para determinar o tipo de arquivo
+const getFileCategory = (mimetype) => {
+  if (mimetype.startsWith('image/')) return 'image';
+  if (mimetype.startsWith('video/')) return 'video';
+  if (mimetype.startsWith('audio/')) return 'audio';
+  if (mimetype.includes('pdf') || 
+      mimetype.includes('msword') || 
+      mimetype.includes('wordprocessingml') ||
+      mimetype.includes('ms-excel') ||
+      mimetype.includes('spreadsheetml')) {
+    return 'document';
+  }
+  return null;
+};
 
 class UploadController {
   /**
@@ -46,6 +69,27 @@ class UploadController {
       if (!req.file) {
         addCorsHeaders(req, res);
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
+
+      // Validar tamanho do arquivo baseado no tipo
+      const fileCategory = getFileCategory(req.file.mimetype);
+      if (fileCategory) {
+        const maxSize = FILE_SIZE_LIMITS[fileCategory];
+        if (req.file.size > maxSize) {
+          const maxSizeMB = maxSize / (1024 * 1024);
+          const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+          addCorsHeaders(req, res);
+          return res.status(413).json({
+            error: 'Arquivo muito grande',
+            message: `O arquivo enviado (${fileSizeMB}MB) excede o limite máximo permitido de ${maxSizeMB}MB para ${fileCategory === 'image' ? 'imagens' : fileCategory === 'video' ? 'vídeos' : fileCategory === 'document' ? 'documentos' : 'áudios'}`,
+            maxSize: maxSizeMB,
+            maxSizeBytes: maxSize,
+            fileSize: req.file.size,
+            fileSizeMB: parseFloat(fileSizeMB),
+            category: fileCategory,
+            code: 'LIMIT_FILE_SIZE'
+          });
+        }
       }
 
       if (!process.env.S3_BUCKET) {

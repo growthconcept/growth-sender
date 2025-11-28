@@ -18,16 +18,25 @@ router.post('/', (req, res, next) => {
 
       // Tratamento específico para diferentes tipos de erro
       if (err.code === 'LIMIT_FILE_SIZE') {
-        const maxSizeMB = 200;
         const fileSizeMB = req.headers['content-length'] 
           ? (parseInt(req.headers['content-length']) / (1024 * 1024)).toFixed(2)
           : 'desconhecido';
         
+        // Limite máximo é 500MB (para documentos), mas a mensagem será genérica
+        // A validação específica por tipo será feita no controller
+        const maxSizeMB = 500;
+        
         return res.status(413).json({ 
           error: 'Arquivo muito grande',
-          message: `O arquivo enviado (${fileSizeMB}MB) excede o limite máximo permitido de ${maxSizeMB}MB`,
+          message: `O arquivo enviado (${fileSizeMB}MB) excede o limite máximo permitido. Limites: Imagens e vídeos: 50MB | Documentos: 500MB`,
           maxSize: maxSizeMB,
           maxSizeBytes: maxSizeMB * 1024 * 1024,
+          limits: {
+            image: 50,
+            video: 50,
+            document: 500,
+            audio: 50
+          },
           code: 'LIMIT_FILE_SIZE'
         });
       }
