@@ -121,9 +121,10 @@ app.options('*', (req, res) => {
   res.status(204).end();
 });
 
-// Configurar body parsers com limite aumentado (500MB para documentos)
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ extended: true, limit: '500mb' }));
+// Configurar body parsers com limite aumentado (2GB - mesmo limite do Nginx)
+// A validação de tamanho por tipo de arquivo é feita no controller
+app.use(express.json({ limit: '2gb' }));
+app.use(express.urlencoded({ extended: true, limit: '2gb' }));
 
 // Servir arquivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -193,8 +194,8 @@ app.use((err, req, res, next) => {
     return res.status(413).json({
       error: 'Payload muito grande',
       message: 'O tamanho da requisição excede o limite máximo permitido. Limites: Imagens e vídeos: 50MB | Documentos: 500MB',
-      maxSize: 500,
-      maxSizeBytes: 500 * 1024 * 1024,
+      maxSize: 2048, // 2GB (limite técnico do Nginx)
+      maxSizeBytes: 2 * 1024 * 1024 * 1024,
       limits: {
         image: 50,
         video: 50,

@@ -36,12 +36,14 @@ const FILE_SIZE_LIMITS = {
   audio: 50 * 1024 * 1024       // 50MB para áudios
 };
 
-// Configurar multer com limite máximo de 500MB (para documentos)
+// Configurar multer com limite máximo de 2GB
+// A validação de tamanho por tipo de arquivo é feita no controller
+// (Imagens/Vídeos: 50MB, Documentos: 500MB)
 export const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB (limite máximo para documentos)
+    fileSize: 2 * 1024 * 1024 * 1024 // 2GB (limite máximo do Nginx)
   }
 });
 
