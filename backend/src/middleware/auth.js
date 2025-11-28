@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { addCorsHeaders } from './cors.js';
 
 export const authenticate = async (req, res, next) => {
   try {
@@ -7,6 +8,7 @@ export const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      addCorsHeaders(req, res);
       return res.status(401).json({ error: 'No token provided' });
     }
 
@@ -17,6 +19,7 @@ export const authenticate = async (req, res, next) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (jwtError) {
+      addCorsHeaders(req, res);
       if (jwtError.name === 'JsonWebTokenError') {
         return res.status(401).json({ error: 'Invalid token' });
       }
@@ -45,6 +48,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     if (!user) {
+      addCorsHeaders(req, res);
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -58,6 +62,7 @@ export const authenticate = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Authentication error:', error);
+    addCorsHeaders(req, res);
     return res.status(500).json({ error: 'Authentication error' });
   }
 };

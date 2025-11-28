@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { sequelize } from './models/index.js';
+import { addCorsHeaders } from './middleware/cors.js';
 
 // Importar rotas
 import authRoutes from './routes/auth.js';
@@ -140,11 +141,13 @@ app.get('/', (req, res) => {
 
 // Tratamento de erros 404
 app.use((req, res) => {
+  addCorsHeaders(req, res);
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Tratamento de erros global
 app.use((err, req, res, next) => {
+  addCorsHeaders(req, res);
   console.error('Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error'

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'path';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import s3Client from '../config/s3Client.js';
+import { addCorsHeaders } from '../middleware/cors.js';
 
 // Filtro de tipos de arquivo
 const fileFilter = (req, file, cb) => {
@@ -43,10 +44,12 @@ class UploadController {
   async uploadFile(req, res) {
     try {
       if (!req.file) {
+        addCorsHeaders(req, res);
         return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       }
 
       if (!process.env.S3_BUCKET) {
+        addCorsHeaders(req, res);
         return res.status(500).json({ error: 'Configuração S3_BUCKET ausente' });
       }
 
@@ -80,6 +83,7 @@ class UploadController {
         ? `${normalizedBase}/${process.env.S3_BUCKET}/${objectKey}`
         : `${normalizedBase}/${objectKey}`;
 
+      addCorsHeaders(req, res);
       res.json({
         message: 'Arquivo enviado com sucesso',
         file: {
@@ -96,6 +100,7 @@ class UploadController {
       });
     } catch (error) {
       console.error('Upload error:', error);
+      addCorsHeaders(req, res);
       res.status(500).json({ error: 'Erro ao fazer upload do arquivo' });
     }
   }
