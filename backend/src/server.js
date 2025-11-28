@@ -44,11 +44,14 @@ const normalizeOrigin = (url) => {
 const normalizedOrigins = corsOrigins.map(normalizeOrigin);
 
 console.log('🔒 CORS Origins configurados:', normalizedOrigins);
+console.log('🔒 FRONTEND_URL env:', process.env.FRONTEND_URL);
 
-app.use(cors({
+// Configuração de CORS mais robusta
+const corsOptions = {
   origin: (origin, callback) => {
     // Permitir requisições sem origin (mobile apps, Postman, healthchecks)
     if (!origin) {
+      console.log('✅ CORS: Requisição sem origin permitida');
       return callback(null, true);
     }
     
@@ -57,17 +60,44 @@ app.use(cors({
     
     // Verificar se a origin normalizada está na lista permitida
     if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
+      console.log(`✅ CORS: Origin permitida: ${origin} (normalized: ${normalizedOrigin})`);
       callback(null, true);
     } else {
       console.warn(`❌ CORS blocked: ${origin} (normalized: ${normalizedOrigin})`);
       console.warn(`📋 Allowed origins: ${normalizedOrigins.join(', ')}`);
-      callback(new Error(`Not allowed by CORS: ${origin}`));
+      // Em produção, rejeitar. Em desenvolvimento, permitir para debug
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️  Development mode: permitindo origin mesmo não configurada');
+        callback(null, true);
+      } else {
+        callback(new Error(`Not allowed by CORS: ${origin}`));
+      }
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 horas
+};
+
+app.use(cors(corsOptions));
+
+// Middleware adicional para garantir headers CORS em todas as respostas
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (normalizedOrigin && normalizedOrigins.includes(normalizedOrigin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
+  }
+  next();
+});
+
+// Handler explícito para requisições OPTIONS (preflight)
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
