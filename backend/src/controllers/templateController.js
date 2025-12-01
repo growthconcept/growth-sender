@@ -203,9 +203,9 @@ class TemplateController {
       const userId = req.user.id;
       const { name } = req.body || {};
 
-      const template = await MessageTemplate.findOne({
-        where: { id, user_id: userId }
-      });
+      // Qualquer usuário pode duplicar qualquer template existente, independente do dono.
+      // A cópia sempre será criada com user_id = usuário atual.
+      const template = await MessageTemplate.findOne({ where: { id } });
 
       if (!template) {
         return res.status(404).json({ error: 'Template not found' });

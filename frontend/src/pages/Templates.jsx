@@ -17,13 +17,15 @@ import {
   File,
   X,
   Copy,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import FileUpload from '@/components/ui/FileUpload';
 import FeedbackBanner from '@/components/FeedbackBanner';
 import { useFeedback } from '@/hooks/useFeedback';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/ToastProvider';
+import TemplatePreview from '@/components/TemplatePreview';
 
 const typeIcons = {
   text: FileText,
@@ -80,6 +82,7 @@ export default function Templates() {
     open: false,
     template: null
   });
+  const [previewTemplate, setPreviewTemplate] = useState(null);
 
   const { data: templatesList, isLoading } = useQuery({
     queryKey: ['templates'],
@@ -284,6 +287,14 @@ export default function Templates() {
     setDuplicateDialog({ open: false, name: '', template: null });
   };
 
+  const handlePreviewClick = (template) => {
+    setPreviewTemplate(template);
+  };
+
+  const handlePreviewClose = () => {
+    setPreviewTemplate(null);
+  };
+
   return (
     <>
     <div className="space-y-8">
@@ -450,80 +461,11 @@ export default function Templates() {
               </div>
             </form>
               <div className="flex justify-center lg:justify-end">
-                <div className="w-full max-w-xs rounded-[32px] border-[14px] border-black bg-black shadow-2xl overflow-hidden">
-                  <div className="h-8 border-b border-white/10 flex items-center justify-between px-6 text-white text-xs opacity-70">
-                    <span>18:34</span>
-                    <div className="flex gap-1 items-center">
-                      <span>5G</span>
-                      <span>100%</span>
-                    </div>
-                  </div>
-                  <div className="bg-[#ECE5DD] min-h-[520px] px-3 pb-6 pt-4 flex flex-col">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full bg-[#34B7F1] flex items-center justify-center text-white text-sm font-semibold">
-                        GC
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-[#075E54]">
-                          Growth Concept
-                        </div>
-                        <div className="text-[11px] text-[#667781]">
-                          online
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-3">
-                      <div className="flex justify-center">
-                        <div className="text-[10px] px-3 py-1 rounded-full bg-white text-[#54656F] border border-[#D1D7DB]">
-                          Hoje
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <div className="relative max-w-[80%] bg-[#DCF7C5] text-[#111B21] px-3 py-2.5 rounded-2xl rounded-br-sm shadow-sm border border-[#D1E7C5] space-y-2">
-                          {formData.message_type !== 'text' && formData.preview_url && (
-                            <>
-                              {formData.message_type === 'image' && (
-                                <img
-                                  src={formData.preview_url}
-                                  alt="preview"
-                                  className="rounded-xl max-h-40 max-w-full object-contain bg-white"
-                                />
-                              )}
-                              {formData.message_type === 'video' && (
-                                <video
-                                  src={formData.preview_url}
-                                  controls
-                                  className="rounded-xl max-h-40 max-w-full object-contain bg-black"
-                                />
-                              )}
-                              {formData.message_type === 'audio' && (
-                                <audio controls className="w-full">
-                                  <source src={formData.preview_url} type="audio/mpeg" />
-                                  Seu navegador não suporta áudio.
-                                </audio>
-                              )}
-                              {formData.message_type === 'document' && (
-                                <div className="flex items-center gap-2 text-sm text-[#111B21]/80">
-                                  <File className="h-4 w-4" />
-                                  <span>Documento anexado</span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          <p className="text-sm whitespace-pre-line">
-                            {formData.text_content
-                              ? formData.text_content
-                              : 'Digite a mensagem do template para visualizar a prévia'}
-                          </p>
-                          <div className="flex items-center justify-end gap-1 text-[10px] text-[#4F7E67]">
-                            <span>18:34</span>
-                            <span>✓✓</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <TemplatePreview
+                  messageType={formData.message_type}
+                  textContent={formData.text_content}
+                  previewUrl={formData.preview_url}
+                />
               </div>
             </div>
           </CardContent>
@@ -564,6 +506,13 @@ export default function Templates() {
                     </Badge>
                   </div>
                   <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePreviewClick(template)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -645,6 +594,40 @@ export default function Templates() {
         </div>
       )}
     </div>
+
+      {/* Modal de preview de template */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Pré-visualizar template
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                  Visualizando o template{' '}
+                  <span className="font-semibold">{previewTemplate.name}</span>.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handlePreviewClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <TemplatePreview
+                messageType={previewTemplate.message_type}
+                textContent={previewTemplate.text_content}
+                previewUrl={previewTemplate.media_url || ''}
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="button" onClick={handlePreviewClose}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {duplicateDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
