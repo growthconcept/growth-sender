@@ -585,7 +585,12 @@ export default function Templates() {
                   )}
 
                   <div className="pt-2 border-t text-xs text-muted-foreground">
-                    Criado em: {new Date(template.created_at).toLocaleDateString('pt-BR')}
+                    {(() => {
+                      const rawDate = template.created_at || template.createdAt;
+                      const date = rawDate ? new Date(rawDate) : null;
+                      const isValid = date && !isNaN(date.getTime());
+                      return `Criado em: ${isValid ? date.toLocaleDateString('pt-BR') : '-'}`;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -595,36 +600,28 @@ export default function Templates() {
       )}
     </div>
 
-      {/* Modal de preview de template */}
+      {/* Modal de preview de template (estilo lightbox) */}
       {previewTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Pré-visualizar template
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                  Visualizando o template{' '}
-                  <span className="font-semibold">{previewTemplate.name}</span>.
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={handlePreviewClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex justify-center">
-              <TemplatePreview
-                messageType={previewTemplate.message_type}
-                textContent={previewTemplate.text_content}
-                previewUrl={previewTemplate.media_url || ''}
-              />
-            </div>
-            <div className="flex justify-end pt-2">
-              <Button type="button" onClick={handlePreviewClose}>
-                Fechar
-              </Button>
-            </div>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={handlePreviewClose}
+        >
+          <div
+            className="relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handlePreviewClose}
+              className="absolute -top-8 right-0 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md p-1 transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <TemplatePreview
+              messageType={previewTemplate.message_type}
+              textContent={previewTemplate.text_content}
+              previewUrl={previewTemplate.media_url || ''}
+            />
           </div>
         </div>
       )}
