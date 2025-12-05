@@ -77,7 +77,7 @@ export const campaigns = {
 
 // Dashboard
 export const dashboard = {
-  getMetrics: () => api.get('/dashboard/metrics'),
+  getMetrics: (params) => api.get('/dashboard/metrics', { params }),
   getRecentCampaigns: (params) => api.get('/dashboard/recent-campaigns', { params }),
   getStats: (params) => api.get('/dashboard/stats', { params })
 };

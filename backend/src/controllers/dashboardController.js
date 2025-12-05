@@ -10,39 +10,71 @@ class DashboardController {
   async getMetrics(req, res) {
     try {
       const userId = req.user.id;
+      const { date_from, date_to } = req.query;
 
       // Construir where clause baseado em permissões
       // Admin e supervisor: podem ver dados de todos os usuários
       // Usuário comum: apenas os próprios dados
       const campaignWhere = {};
-      const connectionWhere = {};
       const messageLogCampaignWhere = {};
 
       if (!isPrivilegedViewer(req.user)) {
         campaignWhere.user_id = userId;
-        connectionWhere.user_id = userId;
         messageLogCampaignWhere.user_id = userId;
       }
 
-      // Total de campanhas
+      // Aplicar filtro de data nas campanhas se fornecido
+      if (date_from || date_to) {
+        campaignWhere.created_at = {};
+        if (date_from) {
+          const fromDate = new Date(date_from);
+          fromDate.setHours(0, 0, 0, 0);
+          campaignWhere.created_at[Op.gte] = fromDate;
+        }
+        if (date_to) {
+          const toDate = new Date(date_to);
+          toDate.setHours(23, 59, 59, 999);
+          campaignWhere.created_at[Op.lte] = toDate;
+        }
+      }
+
+      // Total de campanhas (com filtro de data se aplicável)
       const totalCampaigns = await Campaign.count({
         where: campaignWhere
       });
 
-      // Campanhas ativas (running ou scheduled)
-      const activeCampaigns = await Campaign.count({
-        where: {
-          ...campaignWhere,
-          status: {
-            [Op.in]: ['running', 'scheduled']
-          }
+      // Campanhas ativas (running ou scheduled) - com filtro de data
+      const activeCampaignsWhere = {
+        ...campaignWhere,
+        status: {
+          [Op.in]: ['running', 'scheduled']
         }
+      };
+      const activeCampaigns = await Campaign.count({
+        where: activeCampaignsWhere
       });
 
-      // Mensagens enviadas hoje
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Construir filtro de data para mensagens
+      const messageDateFilter = {};
+      if (date_from || date_to) {
+        if (date_from) {
+          const fromDate = new Date(date_from);
+          fromDate.setHours(0, 0, 0, 0);
+          messageDateFilter[Op.gte] = fromDate;
+        }
+        if (date_to) {
+          const toDate = new Date(date_to);
+          toDate.setHours(23, 59, 59, 999);
+          messageDateFilter[Op.lte] = toDate;
+        }
+      } else {
+        // Se não há filtro de data, usar "hoje" como padrão
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        messageDateFilter[Op.gte] = today;
+      }
 
+      // Mensagens no período (hoje se não houver filtro)
       const messagesToday = await MessageLog.count({
         include: [{
           model: Campaign,
@@ -52,15 +84,30 @@ class DashboardController {
         }],
         where: {
           status: 'sent',
-          sent_at: {
-            [Op.gte]: today
-          }
+          sent_at: messageDateFilter
         }
       });
 
-      // Taxa de sucesso (últimos 7 dias)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      // Taxa de sucesso no período
+      // Se há filtro de data, usar o período filtrado
+      // Se não, usar últimos 7 dias
+      let successRateStartDate;
+      if (date_from) {
+        successRateStartDate = new Date(date_from);
+        successRateStartDate.setHours(0, 0, 0, 0);
+      } else {
+        successRateStartDate = new Date();
+        successRateStartDate.setDate(successRateStartDate.getDate() - 7);
+      }
+
+      let successRateEndDate;
+      if (date_to) {
+        successRateEndDate = new Date(date_to);
+        successRateEndDate.setHours(23, 59, 59, 999);
+      } else {
+        successRateEndDate = new Date();
+        successRateEndDate.setHours(23, 59, 59, 999);
+      }
 
       const [totalMessages, successMessages] = await Promise.all([
         MessageLog.count({
@@ -72,7 +119,8 @@ class DashboardController {
           }],
           where: {
             sent_at: {
-              [Op.gte]: sevenDaysAgo
+              [Op.gte]: successRateStartDate,
+              [Op.lte]: successRateEndDate
             }
           }
         }),
@@ -86,7 +134,8 @@ class DashboardController {
           where: {
             status: 'sent',
             sent_at: {
-              [Op.gte]: sevenDaysAgo
+              [Op.gte]: successRateStartDate,
+              [Op.lte]: successRateEndDate
             }
           }
         })
@@ -96,21 +145,12 @@ class DashboardController {
         ? Math.round((successMessages / totalMessages) * 100)
         : 0;
 
-      // Conexões ativas
-      const activeConnections = await Connection.count({
-        where: {
-          ...connectionWhere,
-          status: 'connected'
-        }
-      });
-
       res.json({
         metrics: {
           totalCampaigns,
           activeCampaigns,
           messagesToday,
-          successRate,
-          activeConnections
+          successRate
         }
       });
     } catch (error) {

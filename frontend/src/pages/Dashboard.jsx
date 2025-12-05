@@ -5,8 +5,10 @@ import MetricCard from '@/components/dashboard/MetricCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { BarChart3, Send, TrendingUp, Link as LinkIcon, Clock, Eye } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { BarChart3, Send, TrendingUp, Clock, Eye, Calendar } from 'lucide-react';
+import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import CampaignDetails from '@/components/CampaignDetails';
 
@@ -57,11 +59,23 @@ function formatCampaignDate(rawDate) {
 
 export default function Dashboard() {
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Formatar datas para o formato esperado pelo backend (YYYY-MM-DD)
+  const formatDateForAPI = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['dashboard-metrics'],
+    queryKey: ['dashboard-metrics', dateFrom, dateTo],
     queryFn: async () => {
-      const response = await dashboard.getMetrics();
+      const params = {};
+      if (dateFrom) params.date_from = formatDateForAPI(dateFrom);
+      if (dateTo) params.date_to = formatDateForAPI(dateTo);
+      const response = await dashboard.getMetrics(params);
       return response.data.metrics;
     }
   });
@@ -89,14 +103,68 @@ export default function Dashboard() {
     );
   }
 
+  const handleResetDates = () => {
+    setDateFrom('');
+    setDateTo('');
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Visão geral das suas campanhas e mensagens
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Visão geral das suas campanhas e mensagens
+          </p>
+        </div>
       </div>
+
+      {/* Filtro de Data */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Filtro de Período
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="date-from">Data Inicial</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="date-to">Data Final</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                min={dateFrom || undefined}
+              />
+            </div>
+            <div>
+              <Button
+                variant="outline"
+                onClick={handleResetDates}
+                disabled={!dateFrom && !dateTo}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          </div>
+          {(dateFrom || dateTo) && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Mostrando dados de {dateFrom ? format(new Date(dateFrom), "dd/MM/yyyy", { locale: ptBR }) : 'início'} até {dateTo ? format(new Date(dateTo), "dd/MM/yyyy", { locale: ptBR }) : 'hoje'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Métricas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -113,34 +181,18 @@ export default function Dashboard() {
           description="Agendadas ou em execução"
         />
         <MetricCard
-          title="Mensagens Hoje"
+          title={dateFrom || dateTo ? "Mensagens no Período" : "Mensagens Hoje"}
           value={metrics?.messagesToday || 0}
           icon={Send}
-          description="Enviadas nas últimas 24h"
+          description={dateFrom || dateTo ? "Enviadas no período selecionado" : "Enviadas nas últimas 24h"}
         />
         <MetricCard
           title="Taxa de Sucesso"
           value={`${metrics?.successRate || 0}%`}
           icon={TrendingUp}
-          description="Últimos 7 dias"
+          description={dateFrom || dateTo ? "No período selecionado" : "Últimos 7 dias"}
         />
       </div>
-
-      {/* Conexões */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5" />
-            Conexões Ativas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{metrics?.activeConnections || 0}</div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Conexões WhatsApp conectadas
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Campanhas Recentes */}
       <Card>
