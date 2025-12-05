@@ -58,6 +58,7 @@ class ConnectionController {
       }
 
       const connections = [];
+      const processedInstanceNames = new Set(); // Para rastrear instâncias processadas e evitar duplicatas
 
       // Processar cada instância
       for (const instance of instances) {
@@ -81,6 +82,13 @@ class ConnectionController {
             console.warn('Could not extract instance name from:', JSON.stringify(instance));
             continue;
           }
+
+          // Verificar se já processamos esta instância (evitar duplicatas)
+          if (processedInstanceNames.has(instanceName)) {
+            console.warn(`Duplicate instance name detected: ${instanceName}, skipping`);
+            continue;
+          }
+          processedInstanceNames.add(instanceName);
 
           console.log('Processing instance:', instanceName);
 
@@ -166,7 +174,7 @@ class ConnectionController {
             }
           }
 
-          // Verificar se já existe no banco
+          // Verificar se já existe no banco (buscar por user_id + instance_name para evitar duplicatas)
           let connection = await Connection.findOne({
             where: {
               user_id: userId,
@@ -184,6 +192,19 @@ class ConnectionController {
             });
             console.log(`Updated connection: ${instanceName}`);
           } else {
+            // Verificar se existe outra conexão com mesmo instance_name mas user_id diferente
+            // (pode acontecer se a Evolution API retornar instâncias de múltiplos usuários)
+            const existingConnection = await Connection.findOne({
+              where: {
+                instance_name: instanceName
+              }
+            });
+
+            if (existingConnection) {
+              console.warn(`Instance ${instanceName} already exists for user ${existingConnection.user_id}, skipping creation for user ${userId}`);
+              continue;
+            }
+
             // Criar nova conexão
             connection = await Connection.create({
               user_id: userId,
@@ -205,7 +226,43 @@ class ConnectionController {
         }
       }
 
-      console.log(`Sync completed. Processed ${connections.length} connections`);
+      // REMOVER CONEXÕES ÓRFÃS: conexões que existem no banco mas não estão mais na Evolution API
+      const existingConnections = await Connection.findAll({
+        where: { user_id: userId },
+        attributes: ['id', 'instance_name']
+      });
+
+      const instanceNamesFromAPI = Array.from(processedInstanceNames);
+      const orphanedConnections = existingConnections.filter(
+        conn => !instanceNamesFromAPI.includes(conn.instance_name)
+      );
+
+      if (orphanedConnections.length > 0) {
+        console.log(`Found ${orphanedConnections.length} orphaned connections to remove`);
+        const orphanedIds = orphanedConnections.map(conn => conn.id);
+        
+        // Verificar se há campanhas ativas usando essas conexões antes de deletar
+        const { Campaign } = await import('../models/index.js');
+        const campaignsUsingOrphaned = await Campaign.count({
+          where: {
+            connection_id: { [Op.in]: orphanedIds },
+            status: { [Op.in]: ['scheduled', 'running'] }
+          }
+        });
+
+        if (campaignsUsingOrphaned > 0) {
+          console.warn(`Cannot remove ${orphanedConnections.length} orphaned connections: ${campaignsUsingOrphaned} active campaigns are using them`);
+        } else {
+          await Connection.destroy({
+            where: {
+              id: { [Op.in]: orphanedIds }
+            }
+          });
+          console.log(`Removed ${orphanedConnections.length} orphaned connections`);
+        }
+      }
+
+      console.log(`Sync completed. Processed ${connections.length} connections, found ${instances.length} instances in API`);
 
       res.json({
         message: 'Connections synchronized successfully',
