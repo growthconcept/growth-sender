@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isToday, isAfter, isBefore, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './Button';
 
 const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export const Calendar = ({ mode = 'single', selected, onSelect, className = '' }) => {
+export const Calendar = ({ mode = 'single', selected, range, onSelect, className = '' }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const nextMonth = () => {
@@ -34,17 +34,39 @@ export const Calendar = ({ mode = 'single', selected, onSelect, className = '' }
     if (mode === 'single') {
       onSelect?.(date);
     } else if (mode === 'range') {
-      // Para range, precisamos de lógica adicional no componente pai
       onSelect?.(date);
     }
   };
 
   const isSelected = (date) => {
-    if (!selected) return false;
     if (mode === 'single') {
+      if (!selected) return false;
       return isSameDay(date, selected);
+    } else if (mode === 'range') {
+      if (!range || !range.from) return false;
+      if (range.from && !range.to) {
+        return isSameDay(date, range.from);
+      }
+      if (range.from && range.to) {
+        return isSameDay(date, range.from) || isSameDay(date, range.to);
+      }
     }
     return false;
+  };
+
+  const isInRange = (date) => {
+    if (mode !== 'range' || !range || !range.from || !range.to) return false;
+    return isWithinInterval(date, { start: range.from, end: range.to });
+  };
+
+  const isRangeStart = (date) => {
+    if (mode !== 'range' || !range || !range.from) return false;
+    return isSameDay(date, range.from);
+  };
+
+  const isRangeEnd = (date) => {
+    if (mode !== 'range' || !range || !range.to) return false;
+    return isSameDay(date, range.to);
   };
 
   return (
@@ -90,6 +112,9 @@ export const Calendar = ({ mode = 'single', selected, onSelect, className = '' }
           const isCurrentMonth = isSameMonth(date, currentMonth);
           const isSelectedDate = isSelected(date);
           const isTodayDate = isToday(date);
+          const inRange = isInRange(date);
+          const rangeStart = isRangeStart(date);
+          const rangeEnd = isRangeEnd(date);
 
           return (
             <button
@@ -97,11 +122,14 @@ export const Calendar = ({ mode = 'single', selected, onSelect, className = '' }
               onClick={() => handleDateClick(date)}
               disabled={!isCurrentMonth}
               className={`
-                h-10 w-10 rounded-md text-sm font-medium transition-colors
+                h-10 w-10 rounded-md text-sm font-medium transition-colors relative
                 ${!isCurrentMonth ? 'text-muted-foreground/30 cursor-not-allowed' : 'hover:bg-accent'}
-                ${isSelectedDate ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
+                ${isSelectedDate ? 'bg-primary text-primary-foreground hover:bg-primary/90 z-10' : ''}
+                ${inRange && !isSelectedDate ? 'bg-primary/20' : ''}
+                ${rangeStart ? 'rounded-l-md' : ''}
+                ${rangeEnd ? 'rounded-r-md' : ''}
                 ${isTodayDate && !isSelectedDate ? 'bg-accent font-semibold' : ''}
-                ${isCurrentMonth && !isSelectedDate && !isTodayDate ? 'hover:bg-accent' : ''}
+                ${isCurrentMonth && !isSelectedDate && !isTodayDate && !inRange ? 'hover:bg-accent' : ''}
               `}
             >
               {format(date, 'd')}

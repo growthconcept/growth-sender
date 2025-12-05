@@ -134,9 +134,9 @@ export default function Dashboard() {
             onDateToChange={setDateTo}
             onClear={handleResetDates}
           />
-          {(dateFrom || dateTo) && (
+          {dateFrom && dateTo && (
             <p className="text-sm text-muted-foreground mt-4">
-              Mostrando dados de {dateFrom ? format(new Date(dateFrom), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'início'} até {dateTo ? format(new Date(dateTo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'hoje'}
+              Mostrando dados de {format(new Date(dateFrom), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} até {format(new Date(dateTo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </p>
           )}
         </CardContent>
