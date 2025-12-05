@@ -156,41 +156,59 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {recentCampaigns.map((campaign) => (
-                <div
-                  key={campaign.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <div className="space-y-1 flex-1">
-                    <div className="font-medium">{campaign.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {campaign.user?.name || 'N/A'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Criada em {formatCampaignDate(campaign.created_at)}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge variant={statusColors[campaign.status]}>
-                        {statusLabels[campaign.status]}
-                      </Badge>
+              {recentCampaigns.map((campaign) => {
+                const totalRecipients = Array.isArray(campaign.recipients) 
+                  ? campaign.recipients.length 
+                  : (campaign.recipients || 0);
+                const sentCount = campaign.sent_count || 0;
+                const errorCount = campaign.error_count || 0;
+                const totalProcessed = sentCount + errorCount;
+                
+                return (
+                  <div
+                    key={campaign.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="font-medium">{campaign.name}</div>
                       <div className="text-sm text-muted-foreground">
-                        {campaign.sent_count}/{campaign.recipients?.length || 0} enviadas
+                        Criado por: {campaign.user?.name || 'N/A'}
+                      </div>
+                      {campaign.connection && (
+                        <div className="text-xs text-muted-foreground">
+                          Conexão: {campaign.connection.instance_name || campaign.connection.phone_number || 'N/A'}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {campaign.started_at 
+                          ? `Iniciada em: ${formatCampaignDate(campaign.started_at)}`
+                          : `Criada em: ${formatCampaignDate(campaign.created_at)}`
+                        }
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedCampaignId(campaign.id)}
-                      title="Ver detalhes"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver detalhes
-                    </Button>
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={statusColors[campaign.status]}>
+                          {statusLabels[campaign.status]}
+                        </Badge>
+                        <div className="text-sm text-muted-foreground text-right">
+                          <div>{sentCount} enviadas / {errorCount} erros</div>
+                          <div>{totalProcessed}/{totalRecipients} mensagens processadas</div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCampaignId(campaign.id)}
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver detalhes
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -1,6 +1,7 @@
-import { Campaign, Connection, MessageLog } from '../models/index.js';
+import { Campaign, Connection, MessageLog, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '../config/database.js';
+import { isPrivilegedViewer } from '../middleware/permissions.js';
 
 class DashboardController {
   /**
@@ -10,15 +11,28 @@ class DashboardController {
     try {
       const userId = req.user.id;
 
+      // Construir where clause baseado em permissões
+      // Admin e supervisor: podem ver dados de todos os usuários
+      // Usuário comum: apenas os próprios dados
+      const campaignWhere = {};
+      const connectionWhere = {};
+      const messageLogCampaignWhere = {};
+
+      if (!isPrivilegedViewer(req.user)) {
+        campaignWhere.user_id = userId;
+        connectionWhere.user_id = userId;
+        messageLogCampaignWhere.user_id = userId;
+      }
+
       // Total de campanhas
       const totalCampaigns = await Campaign.count({
-        where: { user_id: userId }
+        where: campaignWhere
       });
 
       // Campanhas ativas (running ou scheduled)
       const activeCampaigns = await Campaign.count({
         where: {
-          user_id: userId,
+          ...campaignWhere,
           status: {
             [Op.in]: ['running', 'scheduled']
           }
@@ -33,7 +47,7 @@ class DashboardController {
         include: [{
           model: Campaign,
           as: 'campaign',
-          where: { user_id: userId },
+          where: messageLogCampaignWhere,
           attributes: []
         }],
         where: {
@@ -53,7 +67,7 @@ class DashboardController {
           include: [{
             model: Campaign,
             as: 'campaign',
-            where: { user_id: userId },
+            where: messageLogCampaignWhere,
             attributes: []
           }],
           where: {
@@ -66,7 +80,7 @@ class DashboardController {
           include: [{
             model: Campaign,
             as: 'campaign',
-            where: { user_id: userId },
+            where: messageLogCampaignWhere,
             attributes: []
           }],
           where: {
@@ -85,7 +99,7 @@ class DashboardController {
       // Conexões ativas
       const activeConnections = await Connection.count({
         where: {
-          user_id: userId,
+          ...connectionWhere,
           status: 'connected'
         }
       });
@@ -113,13 +127,26 @@ class DashboardController {
       const userId = req.user.id;
       const { limit = 5 } = req.query;
 
+      // Construir where clause baseado em permissões
+      // Admin e supervisor: podem ver campanhas de todos os usuários
+      // Usuário comum: apenas as próprias campanhas
+      const where = {};
+      if (!isPrivilegedViewer(req.user)) {
+        where.user_id = userId;
+      }
+
       const campaigns = await Campaign.findAll({
-        where: { user_id: userId },
+        where,
         include: [
           {
             model: Connection,
             as: 'connection',
-            attributes: ['id', 'instance_name', 'phone_number']
+            attributes: ['id', 'instance_name', 'phone_number', 'status']
+          },
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
           }
         ],
         order: [['created_at', 'DESC']],
@@ -140,6 +167,12 @@ class DashboardController {
     try {
       const userId = req.user.id;
       const { period = '7d' } = req.query;
+
+      // Construir where clause baseado em permissões
+      const campaignWhere = {};
+      if (!isPrivilegedViewer(req.user)) {
+        campaignWhere.user_id = userId;
+      }
 
       // Calcular data de início baseado no período
       const startDate = new Date();
@@ -166,7 +199,7 @@ class DashboardController {
         include: [{
           model: Campaign,
           as: 'campaign',
-          where: { user_id: userId },
+          where: campaignWhere,
           attributes: []
         }],
         where: {
