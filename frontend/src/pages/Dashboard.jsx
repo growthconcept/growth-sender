@@ -134,11 +134,20 @@ export default function Dashboard() {
             onDateToChange={setDateTo}
             onClear={handleResetDates}
           />
-          {dateFrom && dateTo && (
-            <p className="text-sm text-muted-foreground mt-4">
-              Mostrando dados de {format(new Date(dateFrom), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} até {format(new Date(dateTo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </p>
-          )}
+          {dateFrom && dateTo && (() => {
+            // Criar datas sem problemas de timezone
+            const parseDateString = (dateString) => {
+              const [year, month, day] = dateString.split('-').map(Number);
+              return new Date(year, month - 1, day);
+            };
+            const fromDate = parseDateString(dateFrom);
+            const toDate = parseDateString(dateTo);
+            return (
+              <p className="text-sm text-muted-foreground mt-4">
+                Mostrando dados de {format(fromDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} até {format(toDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </p>
+            );
+          })()}
         </CardContent>
       </Card>
 

@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
-import { format, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from './Calendar';
 import { Button } from './Button';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
+
+// Função para criar data a partir de string yyyy-MM-dd sem problemas de timezone
+const parseDateString = (dateString) => {
+  if (!dateString) return null;
+  // Se já é uma string no formato yyyy-MM-dd, criar data local
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 export const DateRangePicker = ({ dateFrom, dateTo, onDateFromChange, onDateToChange, onClear }) => {
   const [open, setOpen] = useState(false);
@@ -13,8 +21,8 @@ export const DateRangePicker = ({ dateFrom, dateTo, onDateFromChange, onDateToCh
   // Inicializar tempRange quando dateFrom/dateTo mudarem externamente
   useEffect(() => {
     setTempRange({
-      from: dateFrom ? new Date(dateFrom) : null,
-      to: dateTo ? new Date(dateTo) : null
+      from: dateFrom ? parseDateString(dateFrom) : null,
+      to: dateTo ? parseDateString(dateTo) : null
     });
   }, [dateFrom, dateTo]);
 
@@ -53,8 +61,8 @@ export const DateRangePicker = ({ dateFrom, dateTo, onDateFromChange, onDateToCh
     if (!isOpen) {
       // Resetar para valores atuais se não aplicou
       setTempRange({
-        from: dateFrom ? new Date(dateFrom) : null,
-        to: dateTo ? new Date(dateTo) : null
+        from: dateFrom ? parseDateString(dateFrom) : null,
+        to: dateTo ? parseDateString(dateTo) : null
       });
     }
   };
@@ -67,10 +75,13 @@ export const DateRangePicker = ({ dateFrom, dateTo, onDateFromChange, onDateToCh
 
   const getDisplayText = () => {
     if (dateFrom && dateTo) {
-      return `${format(new Date(dateFrom), "dd 'de' MMM", { locale: ptBR })} - ${format(new Date(dateTo), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}`;
+      const fromDate = parseDateString(dateFrom);
+      const toDate = parseDateString(dateTo);
+      return `${format(fromDate, "dd 'de' MMM", { locale: ptBR })} - ${format(toDate, "dd 'de' MMM 'de' yyyy", { locale: ptBR })}`;
     }
     if (dateFrom) {
-      return `A partir de ${format(new Date(dateFrom), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}`;
+      const fromDate = parseDateString(dateFrom);
+      return `A partir de ${format(fromDate, "dd 'de' MMM 'de' yyyy", { locale: ptBR })}`;
     }
     return 'Selecione um período';
   };

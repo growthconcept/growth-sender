@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isToday, isAfter, isBefore, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isToday, isAfter, isBefore, isWithinInterval, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './Button';
@@ -7,7 +7,27 @@ import { Button } from './Button';
 const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export const Calendar = ({ mode = 'single', selected, range, onSelect, className = '' }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Inicializar no mês da data selecionada ou do início do range
+  const getInitialMonth = () => {
+    if (mode === 'range' && range?.from) {
+      return range.from;
+    }
+    if (mode === 'single' && selected) {
+      return selected;
+    }
+    return new Date();
+  };
+  
+  const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
+  
+  // Atualizar mês quando range ou selected mudarem
+  React.useEffect(() => {
+    if (mode === 'range' && range?.from) {
+      setCurrentMonth(range.from);
+    } else if (mode === 'single' && selected) {
+      setCurrentMonth(selected);
+    }
+  }, [range?.from, selected, mode]);
 
   const nextMonth = () => {
     setCurrentMonth(addMonths(currentMonth, 1));
@@ -56,7 +76,13 @@ export const Calendar = ({ mode = 'single', selected, range, onSelect, className
 
   const isInRange = (date) => {
     if (mode !== 'range' || !range || !range.from || !range.to) return false;
-    return isWithinInterval(date, { start: range.from, end: range.to });
+    // Usar startOfDay para garantir comparação correta
+    const dateStart = startOfDay(date);
+    const rangeStart = startOfDay(range.from);
+    const rangeEnd = startOfDay(range.to);
+    // Verificar se está dentro do intervalo (excluindo início e fim que são tratados separadamente)
+    return (isAfter(dateStart, rangeStart) && isBefore(dateStart, rangeEnd)) ||
+           isWithinInterval(dateStart, { start: rangeStart, end: rangeEnd });
   };
 
   const isRangeStart = (date) => {
