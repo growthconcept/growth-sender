@@ -5,12 +5,11 @@ import MetricCard from '@/components/dashboard/MetricCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import { BarChart3, Send, TrendingUp, Clock, Eye, Calendar } from 'lucide-react';
-import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+import { BarChart3, Send, TrendingUp, Clock, Eye, Calendar as CalendarIcon } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import CampaignDetails from '@/components/CampaignDetails';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 
 const statusColors = {
   scheduled: 'warning',
@@ -123,44 +122,21 @@ export default function Dashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+            <CalendarIcon className="h-5 w-5" />
             Filtro de Período
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex-1">
-              <Label htmlFor="date-from">Data Inicial</Label>
-              <Input
-                id="date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="date-to">Data Final</Label>
-              <Input
-                id="date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                min={dateFrom || undefined}
-              />
-            </div>
-            <div>
-              <Button
-                variant="outline"
-                onClick={handleResetDates}
-                disabled={!dateFrom && !dateTo}
-              >
-                Limpar Filtros
-              </Button>
-            </div>
-          </div>
+          <DateRangePicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onClear={handleResetDates}
+          />
           {(dateFrom || dateTo) && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Mostrando dados de {dateFrom ? format(new Date(dateFrom), "dd/MM/yyyy", { locale: ptBR }) : 'início'} até {dateTo ? format(new Date(dateTo), "dd/MM/yyyy", { locale: ptBR }) : 'hoje'}
+            <p className="text-sm text-muted-foreground mt-4">
+              Mostrando dados de {dateFrom ? format(new Date(dateFrom), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'início'} até {dateTo ? format(new Date(dateTo), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'hoje'}
             </p>
           )}
         </CardContent>
