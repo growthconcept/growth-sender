@@ -150,9 +150,9 @@ class CampaignController {
         max_recipients
       } = req.body;
 
-      // Validar conexão
+      // Validar conexão (agora compartilhada entre usuários)
       const connection = await Connection.findOne({
-        where: { id: connection_id, user_id: userId }
+        where: { id: connection_id }
       });
 
       if (!connection) {
@@ -163,9 +163,9 @@ class CampaignController {
         return res.status(400).json({ error: 'Connection is not active' });
       }
 
-      // Validar template
+      // Validar template (agora compartilhado entre usuários)
       const template = await MessageTemplate.findOne({
-        where: { id: template_id, user_id: userId }
+        where: { id: template_id }
       });
 
       if (!template) {
