@@ -1,9 +1,8 @@
-import { MessageTemplate } from '../models/index.js';
-import { isPrivilegedViewer } from '../middleware/permissions.js';
+import { MessageTemplate, User } from '../models/index.js';
 
 class TemplateController {
   /**
-   * Lista todos os templates do usuário
+   * Lista todos os templates (visíveis para todos os usuários)
    */
   async list(req, res) {
     try {
@@ -11,10 +10,15 @@ class TemplateController {
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const userId = req.user.id;
-
+      // Todos os usuários podem ver todos os templates
       const templates = await MessageTemplate.findAll({
-        where: isPrivilegedViewer(req.user) ? {} : { user_id: userId },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
+          }
+        ],
         order: [['created_at', 'DESC']]
       });
 
@@ -30,20 +34,22 @@ class TemplateController {
   }
 
   /**
-   * Busca um template específico
+   * Busca um template específico (visível para todos os usuários)
    */
   async getOne(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
 
-      const where = { id };
-      if (!isPrivilegedViewer(req.user)) {
-        where.user_id = userId;
-      }
-
+      // Qualquer usuário pode visualizar qualquer template
       const template = await MessageTemplate.findOne({
-        where
+        where: { id },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
+          }
+        ]
       });
 
       if (!template) {

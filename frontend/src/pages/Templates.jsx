@@ -18,7 +18,8 @@ import {
   X,
   Copy,
   Loader2,
-  Eye
+  Eye,
+  User
 } from 'lucide-react';
 import FileUpload from '@/components/ui/FileUpload';
 import FeedbackBanner from '@/components/FeedbackBanner';
@@ -26,6 +27,7 @@ import { useFeedback } from '@/hooks/useFeedback';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/ToastProvider';
 import TemplatePreview from '@/components/TemplatePreview';
+import { useAuth } from '@/hooks/useAuth';
 
 const typeIcons = {
   text: FileText,
@@ -60,6 +62,7 @@ const mimeByType = {
 };
 
 export default function Templates() {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -492,6 +495,7 @@ export default function Templates() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {templatesList.map((template) => {
             const Icon = typeIcons[template.message_type] || FileText;
+            const isOwner = currentUser && template.user_id === currentUser.id;
             
             return (
               <Card key={template.id}>
@@ -501,15 +505,24 @@ export default function Templates() {
                       <Icon className="h-5 w-5 text-muted-foreground" />
                       <CardTitle className="text-lg">{template.name}</CardTitle>
                     </div>
-                    <Badge variant={typeColors[template.message_type]}>
-                      {typeLabels[template.message_type]}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={typeColors[template.message_type]}>
+                        {typeLabels[template.message_type]}
+                      </Badge>
+                      {!isOwner && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Compartilhado
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handlePreviewClick(template)}
+                      title="Visualizar"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -518,6 +531,7 @@ export default function Templates() {
                       size="icon"
                       onClick={() => handleDuplicateClick(template)}
                       disabled={duplicateMutation.isPending}
+                      title="Duplicar"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -525,18 +539,22 @@ export default function Templates() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleEdit(template)}
+                      disabled={!isOwner}
+                      title={isOwner ? "Editar" : "Apenas o criador pode editar"}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className={`h-4 w-4 ${!isOwner ? 'opacity-30' : ''}`} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteClick(template)}
                       disabled={
-                        deleteMutation.isPending && deleteDialog.template?.id === template.id
+                        !isOwner ||
+                        (deleteMutation.isPending && deleteDialog.template?.id === template.id)
                       }
+                      title={isOwner ? "Excluir" : "Apenas o criador pode excluir"}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className={`h-4 w-4 text-destructive ${!isOwner ? 'opacity-30' : ''}`} />
                     </Button>
                   </div>
                 </CardHeader>
@@ -584,13 +602,23 @@ export default function Templates() {
                     </div>
                   )}
 
-                  <div className="pt-2 border-t text-xs text-muted-foreground">
-                    {(() => {
-                      const rawDate = template.created_at || template.createdAt;
-                      const date = rawDate ? new Date(rawDate) : null;
-                      const isValid = date && !isNaN(date.getTime());
-                      return `Criado em: ${isValid ? date.toLocaleDateString('pt-BR') : '-'}`;
-                    })()}
+                  <div className="pt-2 border-t space-y-1">
+                    {template.user && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span>
+                          {isOwner ? 'Você' : template.user.name}
+                        </span>
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      {(() => {
+                        const rawDate = template.created_at || template.createdAt;
+                        const date = rawDate ? new Date(rawDate) : null;
+                        const isValid = date && !isNaN(date.getTime());
+                        return `Criado em: ${isValid ? date.toLocaleDateString('pt-BR') : '-'}`;
+                      })()}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
