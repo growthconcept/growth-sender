@@ -263,20 +263,20 @@ export default function Connections() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
-                    {conn.profile_pic_url && !conn.profile_pic_url.includes('pps.whatsapp.net') ? (
+                    {conn.profile_pic_url ? (
                       <img
                         src={conn.profile_pic_url}
                         alt="Profile"
                         className="w-16 h-16 rounded-full border-2 border-gray-200 object-cover"
                         onError={(e) => {
                           e.target.style.display = 'none';
+                          e.target.nextElementSibling?.classList.remove('hidden');
                         }}
                       />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full border-2 border-gray-200 bg-gray-100 flex items-center justify-center">
-                        <span className="text-gray-400 text-xs">Sem foto</span>
-                      </div>
-                    )}
+                    ) : null}
+                    <div className={`w-16 h-16 rounded-full border-2 border-gray-200 bg-gray-100 flex items-center justify-center ${conn.profile_pic_url ? 'hidden' : ''}`}>
+                      <span className="text-gray-400 text-xs">Sem foto</span>
+                    </div>
                     <div className="flex-1">
                       {conn.profile_name && (
                         <div className="text-sm font-semibold mb-1">
@@ -291,17 +291,6 @@ export default function Connections() {
                       </div>
                     </div>
                   </div>
-
-                  {conn.user && (
-                    <div className="pt-2 border-t">
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span>
-                          Criada por: {isOwner ? 'Você' : conn.user.name}
-                        </span>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex gap-2 pt-2 border-t">
                     <Button

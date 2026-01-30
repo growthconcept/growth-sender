@@ -282,13 +282,17 @@ class ConnectionController {
       const limit = req.query.limit ? parseInt(req.query.limit) : (req.query.page ? 6 : 1000);
       const offset = (page - 1) * limit;
 
-      const whereClause = {};
+      // Por padrão, mostrar apenas conexões conectadas
+      const whereClause = {
+        status: 'connected'
+      };
 
-      // Filtro por status
-      if (statusFilter === 'connected') {
-        whereClause.status = 'connected';
-      } else if (statusFilter === 'disconnected') {
+      // Filtro por status (pode sobrescrever o padrão)
+      if (statusFilter === 'disconnected') {
         whereClause.status = 'disconnected';
+      } else if (statusFilter === 'all') {
+        // Remover filtro de status se explicitamente solicitar todas
+        delete whereClause.status;
       }
 
       // Filtro de busca por nome da conexão ou telefone
