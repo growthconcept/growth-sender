@@ -4,10 +4,11 @@ import { connections } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { RefreshCw, Trash2, CheckCircle2, XCircle, AlertCircle, Users, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Trash2, CheckCircle2, XCircle, AlertCircle, Users, Search, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import FeedbackBanner from '@/components/FeedbackBanner';
 import { useFeedback } from '@/hooks/useFeedback';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 const statusColors = {
   connected: 'success',
@@ -28,6 +29,7 @@ const statusIcons = {
 };
 
 export default function Connections() {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { feedback, showFeedback, dismissFeedback } = useFeedback();
   const [syncing, setSyncing] = useState(false);
@@ -220,6 +222,7 @@ export default function Connections() {
           {connectionsList.map((conn) => {
             const StatusIcon = statusIcons[conn.status] || AlertCircle;
             const groups = showGroups[conn.id];
+            const isOwner = currentUser && conn.user_id === currentUser.id;
 
             return (
               <Card key={conn.id} className="relative">
@@ -233,19 +236,29 @@ export default function Connections() {
                       }`} />
                       <CardTitle className="text-lg">{conn.instance_name}</CardTitle>
                     </div>
-                    <Badge variant={statusColors[conn.status]}>
-                      {statusLabels[conn.status]}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={statusColors[conn.status]}>
+                        {statusLabels[conn.status]}
+                      </Badge>
+                      {!isOwner && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Compartilhada
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDeleteClick(conn)}
                     disabled={
-                      deleteMutation.isPending && deleteDialog.connection?.id === conn.id
+                      !isOwner ||
+                      (deleteMutation.isPending && deleteDialog.connection?.id === conn.id)
                     }
+                    title={isOwner ? "Remover conexão" : "Apenas o criador pode remover"}
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className={`h-4 w-4 text-destructive ${!isOwner ? 'opacity-30' : ''}`} />
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -278,6 +291,17 @@ export default function Connections() {
                       </div>
                     </div>
                   </div>
+
+                  {conn.user && (
+                    <div className="pt-2 border-t">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span>
+                          Criada por: {isOwner ? 'Você' : conn.user.name}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex gap-2 pt-2 border-t">
                     <Button

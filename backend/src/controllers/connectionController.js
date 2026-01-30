@@ -1,4 +1,4 @@
-import { Connection } from '../models/index.js';
+import { Connection, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import evolutionAPI from '../services/evolutionAPI.js';
 
@@ -174,16 +174,15 @@ class ConnectionController {
             }
           }
 
-          // Verificar se já existe no banco (buscar por user_id + instance_name para evitar duplicatas)
+          // Verificar se já existe no banco (buscar apenas por instance_name - única por sistema)
           let connection = await Connection.findOne({
             where: {
-              user_id: userId,
               instance_name: instanceName
             }
           });
 
           if (connection) {
-            // Atualizar conexão existente
+            // Atualizar conexão existente (mantém o user_id original)
             await connection.update({
               status,
               phone_number: phoneNumber,
@@ -192,20 +191,7 @@ class ConnectionController {
             });
             console.log(`Updated connection: ${instanceName}`);
           } else {
-            // Verificar se existe outra conexão com mesmo instance_name mas user_id diferente
-            // (pode acontecer se a Evolution API retornar instâncias de múltiplos usuários)
-            const existingConnection = await Connection.findOne({
-              where: {
-                instance_name: instanceName
-              }
-            });
-
-            if (existingConnection) {
-              console.warn(`Instance ${instanceName} already exists for user ${existingConnection.user_id}, skipping creation for user ${userId}`);
-              continue;
-            }
-
-            // Criar nova conexão
+            // Criar nova conexão com o usuário atual como criador
             connection = await Connection.create({
               user_id: userId,
               instance_name: instanceName,
@@ -227,8 +213,8 @@ class ConnectionController {
       }
 
       // REMOVER CONEXÕES ÓRFÃS: conexões que existem no banco mas não estão mais na Evolution API
+      // Nota: Como as conexões agora são compartilhadas, removemos apenas se não existirem na API
       const existingConnections = await Connection.findAll({
-        where: { user_id: userId },
         attributes: ['id', 'instance_name']
       });
 
@@ -284,12 +270,10 @@ class ConnectionController {
   }
 
   /**
-   * Lista todas as conexões do usuário com paginação e busca
+   * Lista todas as conexões (visíveis para todos os usuários) com paginação e busca
    */
   async list(req, res) {
     try {
-      const userId = req.user.id;
-
       const statusFilter = req.query.status;
       const search = req.query.search || '';
       const page = parseInt(req.query.page) || 1;
@@ -298,7 +282,7 @@ class ConnectionController {
       const limit = req.query.limit ? parseInt(req.query.limit) : (req.query.page ? 6 : 1000);
       const offset = (page - 1) * limit;
 
-      const whereClause = { user_id: userId };
+      const whereClause = {};
 
       // Filtro por status
       if (statusFilter === 'connected') {
@@ -329,9 +313,16 @@ class ConnectionController {
       // Buscar total de registros (para paginação)
       const total = await Connection.count({ where: whereClause });
 
-      // Buscar conexões com paginação
+      // Buscar conexões com paginação e informações do usuário criador
       const connections = await Connection.findAll({
         where: whereClause,
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
+          }
+        ],
         order: [['created_at', 'DESC']],
         limit,
         offset
@@ -355,15 +346,21 @@ class ConnectionController {
   }
 
   /**
-   * Busca uma conexão específica
+   * Busca uma conexão específica (visível para todos os usuários)
    */
   async getOne(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
 
       const connection = await Connection.findOne({
-        where: { id, user_id: userId }
+        where: { id },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email']
+          }
+        ]
       });
 
       if (!connection) {
@@ -378,15 +375,14 @@ class ConnectionController {
   }
 
   /**
-   * Atualiza status de uma conexão
+   * Atualiza status de uma conexão (qualquer usuário pode atualizar)
    */
   async updateStatus(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
 
       const connection = await Connection.findOne({
-        where: { id, user_id: userId }
+        where: { id }
       });
 
       if (!connection) {
@@ -450,15 +446,14 @@ class ConnectionController {
   }
 
   /**
-   * Lista grupos de uma conexão
+   * Lista grupos de uma conexão (qualquer usuário pode visualizar)
    */
   async getGroups(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
 
       const connection = await Connection.findOne({
-        where: { id, user_id: userId }
+        where: { id }
       });
 
       if (!connection) {
