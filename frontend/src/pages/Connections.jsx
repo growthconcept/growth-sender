@@ -263,7 +263,7 @@ export default function Connections() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
-                    {conn.profile_pic_url ? (
+                    {conn.profile_pic_url && !conn.profile_pic_url.includes('pps.whatsapp.net') ? (
                       <img
                         src={conn.profile_pic_url}
                         alt="Profile"
