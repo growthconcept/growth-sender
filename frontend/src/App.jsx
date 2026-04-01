@@ -6,6 +6,8 @@ import { ToastProvider } from '@/components/ui/ToastProvider';
 // Pages
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 import Dashboard from '@/pages/Dashboard';
 import Connections from '@/pages/Connections';
 import Templates from '@/pages/Templates';
@@ -97,6 +99,8 @@ function AppRoutes() {
         path="/register"
         element={user ? <Navigate to="/dashboard" replace /> : <Register />}
       />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected Routes */}
       <Route

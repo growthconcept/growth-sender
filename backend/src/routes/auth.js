@@ -34,4 +34,27 @@ router.post(
 // Dados do usuário atual
 router.get('/me', authenticate, authController.me);
 
+// Solicitar redefinição de senha
+router.post(
+  '/forgot-password',
+  [
+    body('email').isEmail().withMessage('E-mail válido é obrigatório'),
+    validate
+  ],
+  authController.forgotPassword
+);
+
+// Redefinir senha com token
+router.post(
+  '/reset-password',
+  [
+    body('token').notEmpty().withMessage('Token é obrigatório'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('A senha deve ter pelo menos 6 caracteres'),
+    validate
+  ],
+  authController.resetPassword
+);
+
 export default router;
