@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { auth } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -18,7 +18,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      await axios.post('/api/auth/forgot-password', { email });
+      await auth.forgotPassword(email);
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao processar solicitação. Tente novamente.');

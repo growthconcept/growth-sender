@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import { auth } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -41,7 +41,7 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      await axios.post('/api/auth/reset-password', { token, password });
+      await auth.resetPassword(token, password);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
