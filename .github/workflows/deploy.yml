@@ -51,6 +51,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd ${{ secrets.VPS_PATH }}
+            git fetch origin
+            git checkout main
             git pull origin main
             docker compose build --no-cache
             docker compose up -d
