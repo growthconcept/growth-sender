@@ -39,6 +39,39 @@ async function migrate() {
       console.log('Note: enum_users_role may not exist yet, sync will create it');
     }
     
+    // Adicionar novos valores ao ENUM message_type de message_templates
+    const newMessageTypes = ['interactive_menu', 'carousel'];
+    for (const value of newMessageTypes) {
+      try {
+        const [results] = await sequelize.query(`
+          SELECT EXISTS (
+            SELECT 1
+            FROM pg_enum
+            WHERE enumlabel = '${value}'
+            AND enumtypid = (
+              SELECT oid
+              FROM pg_type
+              WHERE typname = 'enum_message_templates_message_type'
+            )
+          ) as exists;
+        `);
+
+        const exists = results[0]?.exists;
+
+        if (!exists) {
+          console.log(`Adding "${value}" to enum_message_templates_message_type...`);
+          await sequelize.query(`
+            ALTER TYPE enum_message_templates_message_type ADD VALUE IF NOT EXISTS '${value}';
+          `);
+          console.log(`✓ Added "${value}" to enum_message_templates_message_type`);
+        } else {
+          console.log(`✓ "${value}" already exists in enum_message_templates_message_type`);
+        }
+      } catch (enumError) {
+        console.log(`Note: enum_message_templates_message_type may not exist yet, sync will create it`);
+      }
+    }
+
     await sequelize.sync({ alter: true });
     console.log('✓ Database synchronized successfully');
 

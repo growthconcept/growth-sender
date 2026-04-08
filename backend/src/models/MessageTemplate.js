@@ -20,7 +20,7 @@ const MessageTemplate = sequelize.define('MessageTemplate', {
     allowNull: false
   },
   message_type: {
-    type: DataTypes.ENUM('text', 'image', 'audio', 'video', 'document'),
+    type: DataTypes.ENUM('text', 'image', 'audio', 'video', 'document', 'interactive_menu', 'carousel'),
     defaultValue: 'text'
   },
   text_content: {
@@ -29,6 +29,10 @@ const MessageTemplate = sequelize.define('MessageTemplate', {
   },
   media_url: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  interactive_content: {
+    type: DataTypes.JSONB,
     allowNull: true
   }
 }, {

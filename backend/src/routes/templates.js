@@ -21,7 +21,7 @@ router.post(
   [
     body('name').notEmpty().withMessage('Name is required'),
     body('message_type')
-      .isIn(['text', 'image', 'audio', 'video', 'document'])
+      .isIn(['text', 'image', 'audio', 'video', 'document', 'interactive_menu', 'carousel'])
       .withMessage('Invalid message type'),
     validate
   ],
@@ -35,7 +35,7 @@ router.put(
     body('name').optional().notEmpty().withMessage('Name cannot be empty'),
     body('message_type')
       .optional()
-      .isIn(['text', 'image', 'audio', 'video', 'document'])
+      .isIn(['text', 'image', 'audio', 'video', 'document', 'interactive_menu', 'carousel'])
       .withMessage('Invalid message type'),
     body('text_content')
       .optional({ nullable: true })

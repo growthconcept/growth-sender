@@ -19,8 +19,16 @@ import {
   Copy,
   Loader2,
   Eye,
-  User
+  User,
+  Menu,
+  LayoutGrid,
+  AlertTriangle,
+  Search,
+  ArrowUpDown
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
+import InteractiveMenuForm from '@/components/templates/InteractiveMenuForm';
+import CarouselForm from '@/components/templates/CarouselForm';
 import FileUpload from '@/components/ui/FileUpload';
 import FeedbackBanner from '@/components/FeedbackBanner';
 import { useFeedback } from '@/hooks/useFeedback';
@@ -28,13 +36,25 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/ToastProvider';
 import TemplatePreview from '@/components/TemplatePreview';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/Select';
+import { Sheet } from '@/components/ui/Sheet';
 
 const typeIcons = {
   text: FileText,
   image: Image,
   video: Video,
   audio: Music,
-  document: File
+  document: File,
+  interactive_menu: Menu,
+  carousel: LayoutGrid
 };
 
 const typeLabels = {
@@ -42,7 +62,9 @@ const typeLabels = {
   image: 'Imagem',
   video: 'Vídeo',
   audio: 'Áudio',
-  document: 'Documento'
+  document: 'Documento',
+  interactive_menu: 'Menu Interativo',
+  carousel: 'Carrossel'
 };
 
 const typeColors = {
@@ -50,8 +72,12 @@ const typeColors = {
   image: 'success',
   video: 'warning',
   audio: 'secondary',
-  document: 'destructive'
+  document: 'destructive',
+  interactive_menu: 'warning',
+  carousel: 'success'
 };
+
+const INTERACTIVE_TYPES = new Set(['interactive_menu', 'carousel']);
 
 const mimeByType = {
   text: 'text/plain',
@@ -71,7 +97,8 @@ export default function Templates() {
     message_type: 'text',
     text_content: '',
     media_url: '',
-    preview_url: ''
+    preview_url: '',
+    interactive_content: null
   });
   const [isUploading, setIsUploading] = useState(false);
   const { feedback, showFeedback, dismissFeedback } = useFeedback();
@@ -86,6 +113,9 @@ export default function Templates() {
     template: null
   });
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [sortOrder, setSortOrder] = useState('newest');
 
   const { data: templatesList, isLoading } = useQuery({
     queryKey: ['templates'],
@@ -165,7 +195,8 @@ export default function Templates() {
       message_type: 'text',
       text_content: '',
       media_url: '',
-      preview_url: ''
+      preview_url: '',
+      interactive_content: null
     });
     setIsUploading(false);
   };
@@ -177,7 +208,8 @@ export default function Templates() {
       message_type: template.message_type,
       text_content: template.text_content,
       media_url: template.media_url || '',
-      preview_url: template.media_url || ''
+      preview_url: template.media_url || '',
+      interactive_content: template.interactive_content || null
     });
     setShowForm(true);
   };
@@ -197,8 +229,9 @@ export default function Templates() {
       return;
     }
 
-    // Validação - Verificar se precisa de mídia e se tem URL
-    if (formData.message_type !== 'text' && !formData.media_url) {
+    // Validação - Verificar se precisa de mídia
+    const needsMedia = !INTERACTIVE_TYPES.has(formData.message_type) && formData.message_type !== 'text';
+    if (needsMedia && !formData.media_url) {
       showFeedback('error', 'Por favor, faça upload do arquivo de mídia primeiro');
       return;
     }
@@ -298,6 +331,31 @@ export default function Templates() {
     setPreviewTemplate(null);
   };
 
+  const filteredTemplates = (templatesList ?? [])
+    .filter((t) => {
+      const matchesSearch = search.trim() === '' ||
+        t.name.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesType = filterType === 'all' ||
+        (filterType === 'interactive' ? INTERACTIVE_TYPES.has(t.message_type) : t.message_type === filterType);
+      return matchesSearch && matchesType;
+    })
+    .sort((a, b) => {
+      if (sortOrder === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+      if (sortOrder === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+      if (sortOrder === 'name') return a.name.localeCompare(b.name, 'pt-BR');
+      return 0;
+    });
+
+  const typePills = [
+    { value: 'all', label: 'Todos' },
+    { value: 'text', label: 'Texto', icon: FileText },
+    { value: 'image', label: 'Imagem', icon: Image },
+    { value: 'video', label: 'Vídeo', icon: Video },
+    { value: 'audio', label: 'Áudio', icon: Music },
+    { value: 'document', label: 'Documento', icon: File },
+    { value: 'interactive', label: 'Interativos', icon: Menu }
+  ];
+
   return (
     <>
     <div className="space-y-8">
@@ -308,73 +366,168 @@ export default function Templates() {
             Gerencie seus templates de mensagens
           </p>
         </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Template
-          </Button>
-        )}
+        <Button onClick={() => setShowForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Template
+        </Button>
       </div>
 
       <FeedbackBanner feedback={feedback} onDismiss={dismissFeedback} />
 
-      {showForm && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>
-              {editingTemplate ? 'Editar Template' : 'Novo Template'}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleCancel}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="name">Nome do Template *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="Ex: Promoção Black Friday"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="message_type">Tipo de Mensagem *</Label>
-                <select
-                  id="message_type"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={formData.message_type}
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    setFormData({ 
-                      ...formData, 
-                      message_type: newType,
-                      media_url: newType === 'text' ? '' : formData.media_url,
-                      preview_url: newType === 'text' ? '' : formData.preview_url
-                    });
-                    // Resetar estado de upload quando mudar o tipo
-                    if (newType === 'text') {
-                      setIsUploading(false);
-                    }
-                  }}
-                  required
+      {/* Barra de busca + filtros */}
+      <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            {/* Campo de busca */}
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Buscar templates..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <option value="text">Texto</option>
-                  <option value="image">Imagem</option>
-                  <option value="video">Vídeo</option>
-                  <option value="audio">Áudio</option>
-                  <option value="document">Documento</option>
-                </select>
-              </div>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
+            {/* Ordenação */}
+            <div className="flex items-center gap-1.5">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger className="w-40 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Mais recentes</SelectItem>
+                  <SelectItem value="oldest">Mais antigos</SelectItem>
+                  <SelectItem value="name">Nome A–Z</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Contador de resultados */}
+            {(search || filterType !== 'all') && (
+              <span className="text-sm text-muted-foreground shrink-0">
+                {filteredTemplates.length} resultado{filteredTemplates.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Pills de tipo */}
+          <div className="flex flex-wrap gap-2">
+            {typePills.map((pill) => {
+              const PillIcon = pill.icon;
+              const isActive = filterType === pill.value;
+              return (
+                <button
+                  key={pill.value}
+                  type="button"
+                  onClick={() => setFilterType(pill.value)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                  }`}
+                >
+                  {PillIcon && <PillIcon className="h-3.5 w-3.5" />}
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+      {/* Sheet de criação/edição de template */}
+      <Sheet
+        open={showForm}
+        onClose={handleCancel}
+        title={editingTemplate ? 'Editar Template' : 'Novo Template'}
+        width="max-w-6xl"
+      >
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] items-start">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Label htmlFor="name">Nome do Template *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                placeholder="Ex: Promoção Black Friday"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="message_type">Tipo de Mensagem *</Label>
+              <Select
+                value={formData.message_type}
+                onValueChange={(newType) => {
+                  const noMedia = newType === 'text' || INTERACTIVE_TYPES.has(newType);
+                  setFormData({
+                    ...formData,
+                    message_type: newType,
+                    media_url: noMedia ? '' : formData.media_url,
+                    preview_url: noMedia ? '' : formData.preview_url,
+                    interactive_content: INTERACTIVE_TYPES.has(newType) ? (formData.interactive_content || null) : null
+                  });
+                  if (noMedia) setIsUploading(false);
+                }}
+              >
+                <SelectTrigger id="message_type" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="text">Texto</SelectItem>
+                    <SelectItem value="image">Imagem</SelectItem>
+                    <SelectItem value="video">Vídeo</SelectItem>
+                    <SelectItem value="audio">Áudio</SelectItem>
+                    <SelectItem value="document">Documento</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Interativos (somente Uazapi)</SelectLabel>
+                    <SelectItem value="interactive_menu">Menu Interativo</SelectItem>
+                    <SelectItem value="carousel">Carrossel</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {INTERACTIVE_TYPES.has(formData.message_type) && (
+              <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Atenção:</strong> Botões interativos e menus podem ser descontinuados pelo WhatsApp sem aviso prévio. Tenha um template de texto alternativo para sua campanha.
+                </span>
+              </div>
+            )}
+
+            {formData.message_type === 'interactive_menu' && (
+              <InteractiveMenuForm
+                value={formData.interactive_content}
+                onChange={(ic) => setFormData((prev) => ({ ...prev, interactive_content: ic }))}
+                onUploadStart={handleUploadStart}
+                onUploadEnd={() => setIsUploading(false)}
+              />
+            )}
+
+            {formData.message_type === 'carousel' && (
+              <CarouselForm
+                value={formData.interactive_content}
+                onChange={(ic) => setFormData((prev) => ({ ...prev, interactive_content: ic }))}
+                onUploadStart={handleUploadStart}
+                onUploadEnd={() => setIsUploading(false)}
+              />
+            )}
+
+            {!INTERACTIVE_TYPES.has(formData.message_type) && (
               <div>
                 <Label htmlFor="text_content">
                   {formData.message_type === 'text' ? 'Mensagem *' : 'Legenda'}
@@ -387,113 +540,156 @@ export default function Templates() {
                   onChange={(e) => setFormData({ ...formData, text_content: e.target.value })}
                   required={formData.message_type === 'text'}
                   placeholder={
-                    formData.message_type === 'text' 
-                      ? 'Digite sua mensagem...' 
+                    formData.message_type === 'text'
+                      ? 'Digite sua mensagem...'
                       : 'Legenda para a mídia (opcional)'
                   }
                 />
               </div>
+            )}
 
-              {formData.message_type !== 'text' && (
-                <div>
-                  <Label htmlFor="media_url">Mídia *</Label>
-                  <FileUpload
-                    onFileUploaded={handleUploadComplete}
-                    onUploadStart={handleUploadStart}
-                    onUploadError={handleUploadError}
-                    messageType={formData.message_type}
-                    accept={
-                      formData.message_type === 'image' ? 'image/*' :
-                      formData.message_type === 'video' ? 'video/*' :
-                      formData.message_type === 'audio' ? 'audio/*' :
-                      '.pdf,.doc,.docx,.xls,.xlsx'
-                    }
-                    initialPreview={formData.preview_url}
-                    initialMimeType={mimeByType[formData.message_type]}
-                    initialName={formData.media_url ? formData.media_url.split('/').pop() : ''}
-                  />
-                  {isUploading && (
-                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-2">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Enviando arquivo...
-                    </p>
-                  )}
-                  {!isUploading && formData.media_url && (
-                    <p className="text-xs text-green-600 mt-2">
-                      ✓ Arquivo carregado com sucesso
-                    </p>
-                  )}
-                  {!isUploading && !formData.media_url && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Selecione um arquivo para fazer upload
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button 
-                  type="submit" 
-                  disabled={
-                    createMutation.isPending || 
-                    updateMutation.isPending || 
-                    isUploading || 
-                    (formData.message_type !== 'text' && !formData.media_url)
-                  }
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Enviando arquivo...
-                    </>
-                  ) : createMutation.isPending || updateMutation.isPending ? (
-                    'Salvando...'
-                  ) : editingTemplate ? (
-                    'Atualizar'
-                  ) : (
-                    'Criar Template'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancel}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-              <div className="flex justify-center lg:justify-end">
-                <TemplatePreview
+            {formData.message_type !== 'text' && !INTERACTIVE_TYPES.has(formData.message_type) && (
+              <div>
+                <Label htmlFor="media_url">Mídia *</Label>
+                <FileUpload
+                  onFileUploaded={handleUploadComplete}
+                  onUploadStart={handleUploadStart}
+                  onUploadError={handleUploadError}
                   messageType={formData.message_type}
-                  textContent={formData.text_content}
-                  previewUrl={formData.preview_url}
+                  accept={
+                    formData.message_type === 'image' ? 'image/*' :
+                    formData.message_type === 'video' ? 'video/*' :
+                    formData.message_type === 'audio' ? 'audio/*' :
+                    '.pdf,.doc,.docx,.xls,.xlsx'
+                  }
+                  initialPreview={formData.preview_url}
+                  initialMimeType={mimeByType[formData.message_type]}
+                  initialName={formData.media_url ? formData.media_url.split('/').pop() : ''}
                 />
+                {isUploading && (
+                  <p className="text-xs text-blue-600 mt-2 flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Enviando arquivo...
+                  </p>
+                )}
+                {!isUploading && formData.media_url && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ Arquivo carregado com sucesso
+                  </p>
+                )}
+                {!isUploading && !formData.media_url && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Selecione um arquivo para fazer upload
+                  </p>
+                )}
               </div>
+            )}
+
+            <div className="flex gap-2 pb-2">
+              <Button
+                type="submit"
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  isUploading ||
+                  (!INTERACTIVE_TYPES.has(formData.message_type) && formData.message_type !== 'text' && !formData.media_url)
+                }
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enviando arquivo...
+                  </>
+                ) : createMutation.isPending || updateMutation.isPending ? (
+                  'Salvando...'
+                ) : editingTemplate ? (
+                  'Atualizar'
+                ) : (
+                  'Criar Template'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+              >
+                Cancelar
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </form>
+
+          {/* Preview colado na coluna da direita */}
+          <div className="hidden lg:flex justify-center pt-1 sticky top-0">
+            <TemplatePreview
+              messageType={formData.message_type}
+              textContent={formData.text_content}
+              previewUrl={formData.preview_url}
+              interactiveContent={formData.interactive_content}
+            />
+          </div>
+        </div>
+      </Sheet>
 
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded-sm" />
+                    <Skeleton className="h-5 w-36" />
+                  </div>
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <Skeleton key={j} className="h-8 w-8 rounded-md" />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-4 w-3/5" />
+              </div>
+              <div className="pt-2 border-t space-y-1">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : !templatesList || templatesList.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">
               Nenhum template encontrado. Crie seu primeiro template!
             </p>
-            {!showForm && (
-              <Button onClick={() => setShowForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Template
-              </Button>
-            )}
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Template
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredTemplates.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Search className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground mb-2">Nenhum template encontrado para os filtros aplicados.</p>
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setFilterType('all'); }}
+              className="text-sm text-primary hover:underline"
+            >
+              Limpar filtros
+            </button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templatesList.map((template) => {
+          {filteredTemplates.map((template) => {
             const Icon = typeIcons[template.message_type] || FileText;
             const isOwner = currentUser && template.user_id === currentUser.id;
             
@@ -561,19 +757,31 @@ export default function Templates() {
                 <CardContent className="space-y-3">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Conteúdo:</p>
-                    <p className="text-sm line-clamp-3">
-                      {template.text_content || '(sem texto)'}
-                    </p>
+                    {template.message_type === 'interactive_menu' && template.interactive_content ? (
+                      <p className="text-sm text-muted-foreground">
+                        Menu tipo: <span className="font-medium capitalize">{template.interactive_content.menuType}</span>
+                        {' • '}
+                        {template.interactive_content.choices?.length ?? 0} opções
+                      </p>
+                    ) : template.message_type === 'carousel' && template.interactive_content ? (
+                      <p className="text-sm text-muted-foreground">
+                        Carrossel • {template.interactive_content.cards?.length ?? 0} cards
+                      </p>
+                    ) : (
+                      <p className="text-sm line-clamp-3">
+                        {template.text_content || '(sem texto)'}
+                      </p>
+                    )}
                   </div>
-                  
-                  {template.message_type !== 'text' && template.media_url && (
+
+                  {template.message_type !== 'text' && !INTERACTIVE_TYPES.has(template.message_type) && template.media_url && (
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground mb-1">Mídia:</p>
                       {template.message_type === 'image' && (
                         <img
                           src={template.media_url}
                           alt="Preview"
-                          className="w-full max-h-48 object-contain rounded-md border bg-white"
+                          className="w-full max-h-48 object-contain rounded-md border bg-background"
                         />
                       )}
                       {template.message_type === 'video' && (
@@ -641,7 +849,7 @@ export default function Templates() {
             <button
               type="button"
               onClick={handlePreviewClose}
-              className="absolute -top-8 right-0 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md p-1 transition"
+              className="absolute -top-8 right-0 rounded-full bg-background/90 hover:bg-background text-foreground shadow-md p-1 transition"
             >
               <X className="h-4 w-4" />
             </button>
@@ -649,6 +857,7 @@ export default function Templates() {
               messageType={previewTemplate.message_type}
               textContent={previewTemplate.text_content}
               previewUrl={previewTemplate.media_url || ''}
+              interactiveContent={previewTemplate.interactive_content || null}
             />
           </div>
         </div>
@@ -656,13 +865,13 @@ export default function Templates() {
 
       {duplicateDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+          <div className="w-full max-w-md rounded-xl bg-background shadow-xl border p-6 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <h2 className="text-lg font-semibold">
                   Duplicar template
                 </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Escolha um nome para a cópia do template{' '}
                   <span className="font-semibold">{duplicateDialog.template?.name}</span>.
                 </p>

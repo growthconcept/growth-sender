@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/ui/ToastProvider';
 
@@ -18,6 +19,7 @@ import Admin from '@/pages/Admin';
 // Layout
 import Navbar from '@/components/layout/Navbar';
 import Sidebar from '@/components/layout/Sidebar';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,15 +75,17 @@ function AdminRoute({ children }) {
 // Layout with Sidebar
 function AppLayout({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-4 md:p-8 min-w-0">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
 
@@ -173,15 +177,17 @@ function AppRoutes() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <AppRoutes />
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

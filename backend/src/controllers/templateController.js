@@ -69,13 +69,14 @@ class TemplateController {
   async create(req, res) {
     try {
       const userId = req.user.id;
-      const { name, message_type, text_content, media_url } = req.body;
+      const { name, message_type, text_content, media_url, interactive_content } = req.body;
 
       console.log('Template create payload:', {
         name,
         message_type,
         hasText: !!text_content,
         hasMedia: !!media_url,
+        hasInteractive: !!interactive_content,
         mediaUrlSample: typeof media_url === 'string' ? media_url.slice(0, 80) : media_url
       });
 
@@ -87,24 +88,47 @@ class TemplateController {
         return res.status(400).json({ error: 'Name is required' });
       }
 
+      const validMenuTypes = ['button', 'list', 'poll'];
+
       if (message_type === 'text') {
         if (!trimmedText) {
+          return res.status(400).json({ error: 'text_content is required for text templates' });
+        }
+      } else if (message_type === 'interactive_menu') {
+        if (!interactive_content || !validMenuTypes.includes(interactive_content.menuType)) {
           return res.status(400).json({
-            error: 'text_content is required for text templates'
+            error: 'interactive_content.menuType must be one of: button, list, poll'
           });
         }
+        if (!Array.isArray(interactive_content.choices) || interactive_content.choices.length === 0) {
+          return res.status(400).json({ error: 'interactive_content.choices must be a non-empty array' });
+        }
+      } else if (message_type === 'carousel') {
+        if (!interactive_content || !Array.isArray(interactive_content.cards) || interactive_content.cards.length === 0) {
+          return res.status(400).json({ error: 'interactive_content.cards must be a non-empty array' });
+        }
+        for (const card of interactive_content.cards) {
+          if (!card.text || !Array.isArray(card.buttons)) {
+            return res.status(400).json({
+              error: 'Each carousel card must have text and buttons array'
+            });
+          }
+        }
       } else if (!trimmedMedia) {
-        return res.status(400).json({
-          error: 'media_url is required for non-text message types'
-        });
+        return res.status(400).json({ error: 'media_url is required for non-text message types' });
       }
+
+      const isInteractive = message_type === 'interactive_menu' || message_type === 'carousel';
 
       const template = await MessageTemplate.create({
         user_id: userId,
         name: trimmedName,
         message_type,
-        text_content: message_type === 'text' ? trimmedText : text_content || '',
-        media_url: message_type === 'text' ? null : trimmedMedia
+        text_content: isInteractive
+          ? (interactive_content?.text || trimmedText || '')
+          : (message_type === 'text' ? trimmedText : (text_content || '')),
+        media_url: isInteractive || message_type === 'text' ? null : trimmedMedia,
+        interactive_content: isInteractive ? interactive_content : null
       });
 
       res.status(201).json({
@@ -124,7 +148,7 @@ class TemplateController {
     try {
       const { id } = req.params;
       const userId = req.user.id;
-      const { name, message_type, text_content, media_url } = req.body;
+      const { name, message_type, text_content, media_url, interactive_content } = req.body;
 
       const template = await MessageTemplate.findOne({
         where: { id, user_id: userId }
@@ -135,34 +159,54 @@ class TemplateController {
       }
 
       const nextType = message_type || template.message_type;
-      const nextText =
-        text_content !== undefined ? text_content : template.text_content;
-      const nextMedia =
-        media_url !== undefined ? media_url : template.media_url;
+      const nextText = text_content !== undefined ? text_content : template.text_content;
+      const nextMedia = media_url !== undefined ? media_url : template.media_url;
+      const nextInteractive = interactive_content !== undefined ? interactive_content : template.interactive_content;
 
       const trimmedName = name !== undefined ? name?.trim() : template.name;
-      const trimmedText =
-        typeof nextText === 'string' ? nextText.trim() : template.text_content;
-      const trimmedMedia =
-        typeof nextMedia === 'string' ? nextMedia.trim() : template.media_url;
+      const trimmedText = typeof nextText === 'string' ? nextText.trim() : template.text_content;
+      const trimmedMedia = typeof nextMedia === 'string' ? nextMedia.trim() : template.media_url;
+
+      const validMenuTypes = ['button', 'list', 'poll'];
 
       if (nextType === 'text') {
         if (!trimmedText) {
+          return res.status(400).json({ error: 'text_content is required for text templates' });
+        }
+      } else if (nextType === 'interactive_menu') {
+        if (!nextInteractive || !validMenuTypes.includes(nextInteractive.menuType)) {
           return res.status(400).json({
-            error: 'text_content is required for text templates'
+            error: 'interactive_content.menuType must be one of: button, list, poll'
           });
         }
+        if (!Array.isArray(nextInteractive.choices) || nextInteractive.choices.length === 0) {
+          return res.status(400).json({ error: 'interactive_content.choices must be a non-empty array' });
+        }
+      } else if (nextType === 'carousel') {
+        if (!nextInteractive || !Array.isArray(nextInteractive.cards) || nextInteractive.cards.length === 0) {
+          return res.status(400).json({ error: 'interactive_content.cards must be a non-empty array' });
+        }
+        for (const card of nextInteractive.cards) {
+          if (!card.text || !Array.isArray(card.buttons)) {
+            return res.status(400).json({
+              error: 'Each carousel card must have text and buttons array'
+            });
+          }
+        }
       } else if (!trimmedMedia) {
-        return res.status(400).json({
-          error: 'media_url is required for non-text message types'
-        });
+        return res.status(400).json({ error: 'media_url is required for non-text message types' });
       }
+
+      const isInteractive = nextType === 'interactive_menu' || nextType === 'carousel';
 
       await template.update({
         name: trimmedName,
         message_type: nextType,
-        text_content: nextType === 'text' ? trimmedText : nextText || '',
-        media_url: nextType === 'text' ? null : trimmedMedia
+        text_content: isInteractive
+          ? (nextInteractive?.text || trimmedText || '')
+          : (nextType === 'text' ? trimmedText : (nextText || '')),
+        media_url: isInteractive || nextType === 'text' ? null : trimmedMedia,
+        interactive_content: isInteractive ? nextInteractive : null
       });
 
       res.json({
@@ -243,7 +287,8 @@ class TemplateController {
         name: newName,
         message_type: template.message_type,
         text_content: template.text_content,
-        media_url: template.media_url
+        media_url: template.media_url,
+        interactive_content: template.interactive_content
       });
 
       res.status(201).json({

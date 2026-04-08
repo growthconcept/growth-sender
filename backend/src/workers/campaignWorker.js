@@ -31,7 +31,7 @@ if (process.env.REDIS_URL) {
 
 import campaignQueue from '../config/queue.js';
 import { Campaign, Connection, MessageTemplate, MessageLog, sequelize } from '../models/index.js';
-import evolutionAPI from '../services/evolutionAPI.js';
+import whatsappService from '../services/whatsapp.service.js';
 import axios from 'axios';
 import s3Client from '../config/s3Client.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -426,19 +426,50 @@ async function processCampaign(job) {
         // Enviar mensagem baseado no tipo
         // Nota: O endpoint é o mesmo para contatos e grupos, apenas o ID/número muda
         if (template.message_type === 'text') {
-          await evolutionAPI.sendTextMessage(
-            connection.instance_name,
+          await whatsappService.sendTextMessage(
+            connection.instance_key,
             recipient,
             template.text_content
           );
+        } else if (template.message_type === 'interactive_menu') {
+          const ic = template.interactive_content;
+          // Converter prefixo interno 'url:' para o formato da API (sem prefixo)
+          const apiChoices = (ic.choices ?? []).map((c) => c.replace('|url:', '|'));
+          const payload = {
+            type: ic.menuType,
+            text: ic.text || template.text_content,
+            choices: apiChoices,
+            ...(ic.footerText !== undefined && { footerText: ic.footerText }),
+            ...(ic.listButton !== undefined && { listButton: ic.listButton }),
+            ...(ic.imageButton !== undefined && { imageButton: ic.imageButton }),
+            ...(ic.selectableCount !== undefined && { selectableCount: ic.selectableCount })
+          };
+          await whatsappService.sendInteractiveMenu(connection.instance_key, recipient, payload);
+        } else if (template.message_type === 'carousel') {
+          const ic = template.interactive_content;
+
+          // Resolver URLs das imagens para URLs públicas/assinadas antes de enviar
+          const resolvedCards = await Promise.all(
+            (ic.cards ?? []).map(async (card) => {
+              if (!card.image) return card;
+              const presigned = await generatePresignedUrl(card.image);
+              return { ...card, image: presigned || card.image };
+            })
+          );
+
+          const payload = {
+            text: ic.text || template.text_content,
+            carousel: resolvedCards
+          };
+          await whatsappService.sendCarousel(connection.instance_key, recipient, payload);
         } else {
           const { media, mediaType } = await buildMediaPayload(template);
 
           if (mediaType === 'audio') {
-            await evolutionAPI.sendWhatsAppAudio(connection.instance_name, recipient, media);
+            await whatsappService.sendWhatsAppAudio(connection.instance_key, recipient, media);
           } else {
-            await evolutionAPI.sendMediaMessage(
-              connection.instance_name,
+            await whatsappService.sendMediaMessage(
+              connection.instance_key,
               recipient,
               mediaType,
               media,

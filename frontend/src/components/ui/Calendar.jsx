@@ -96,7 +96,7 @@ export const Calendar = ({ mode = 'single', selected, range, onSelect, className
   };
 
   return (
-    <div className={`bg-white rounded-lg border shadow-sm p-4 ${className}`}>
+    <div className={`bg-background rounded-lg border shadow-sm p-4 ${className}`}>
       {/* Header com navegação */}
       <div className="flex items-center justify-between mb-4">
         <Button

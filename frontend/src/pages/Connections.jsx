@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { RefreshCw, Trash2, CheckCircle2, XCircle, AlertCircle, Users, Search, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import FeedbackBanner from '@/components/FeedbackBanner';
 import { useFeedback } from '@/hooks/useFeedback';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -40,14 +41,16 @@ export default function Connections() {
     connection: null
   });
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
 
   const { data: connectionsData, isLoading, refetch } = useQuery({
-    queryKey: ['connections', search, page],
+    queryKey: ['connections', search, statusFilter, page],
     queryFn: async () => {
       const params = {
         page,
-        ...(search && { search })
+        ...(search && { search }),
+        ...(statusFilter !== 'all' && { status: statusFilter })
       };
       const response = await connections.list(params);
       return response.data;
@@ -157,7 +160,12 @@ export default function Connections() {
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
-    setPage(1); // Resetar para primeira página ao buscar
+    setPage(1);
+  };
+
+  const handleStatusFilter = (value) => {
+    setStatusFilter(value);
+    setPage(1);
   };
 
   const handlePageChange = (newPage) => {
@@ -176,7 +184,7 @@ export default function Connections() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Conexões</h1>
           <p className="text-muted-foreground">
-            Gerencie suas conexões WhatsApp da Evolution API
+            Gerencie suas conexões
           </p>
         </div>
         <Button onClick={handleSync} disabled={syncing}>
@@ -187,9 +195,9 @@ export default function Connections() {
 
       <FeedbackBanner feedback={feedback} onDismiss={dismissFeedback} />
 
-      {/* Campo de busca */}
+      {/* Campo de busca e filtros */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -200,11 +208,57 @@ export default function Connections() {
               className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+          <div className="flex items-center gap-2">
+            {[
+              { value: 'all', label: 'Todas' },
+              { value: 'connected', label: 'Conectadas' },
+              { value: 'disconnected', label: 'Desconectadas' }
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => handleStatusFilter(value)}
+                className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                  statusFilter === value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary hover:text-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded-full" />
+                    <Skeleton className="h-5 w-32" />
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2 border-t">
+                <Skeleton className="h-8 flex-1 rounded-md" />
+                <Skeleton className="h-8 flex-1 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : !connectionsList || connectionsList.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -267,15 +321,15 @@ export default function Connections() {
                       <img
                         src={conn.profile_pic_url}
                         alt="Profile"
-                        className="w-16 h-16 rounded-full border-2 border-gray-200 object-cover"
+                        className="w-16 h-16 rounded-full border-2 border-border object-cover"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextElementSibling?.classList.remove('hidden');
                         }}
                       />
                     ) : null}
-                    <div className={`w-16 h-16 rounded-full border-2 border-gray-200 bg-gray-100 flex items-center justify-center ${conn.profile_pic_url ? 'hidden' : ''}`}>
-                      <span className="text-gray-400 text-xs">Sem foto</span>
+                    <div className={`w-16 h-16 rounded-full border-2 border-border bg-muted flex items-center justify-center ${conn.profile_pic_url ? 'hidden' : ''}`}>
+                      <span className="text-muted-foreground text-xs">Sem foto</span>
                     </div>
                     <div className="flex-1">
                       {conn.profile_name && (
@@ -326,7 +380,7 @@ export default function Connections() {
                         {groups.map((group, index) => (
                           <div
                             key={index}
-                            className="text-xs p-2 bg-gray-50 rounded border"
+                            className="text-xs p-2 bg-muted rounded border"
                           >
                             <p className="font-medium truncate">{group.subject || group.id}</p>
                             {group.participants && (

@@ -31,3 +31,16 @@ build/
 uploads/
 temp/
 SECURITY_AUDIT.md
+
+# Screenshots e artifacts de testes E2E
+*.png
+.playwright-cli/
+backend/.playwright-cli/
+frontend/.playwright-cli/
+dtp-test-start.yml
+step1-full.yaml
+reload-state.yml
+frontend/reload-state.yml
+frontend/dtp-*.png
+frontend/step*.png
+frontend/select-*.png

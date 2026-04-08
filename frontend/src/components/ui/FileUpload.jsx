@@ -215,7 +215,7 @@ export default function FileUpload({
   return (
     <div className="space-y-2">
       {uploadedFile ? (
-        <div className="border rounded-lg p-4 bg-gray-50">
+        <div className="border rounded-lg p-4 bg-muted/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Icon className="h-5 w-5 text-muted-foreground" />
@@ -238,7 +238,7 @@ export default function FileUpload({
             <img
               src={previewSrc}
               alt="Preview"
-              className="mt-3 rounded-lg max-h-48 max-w-full object-contain bg-white"
+              className="mt-3 rounded-lg max-h-48 max-w-full object-contain bg-background"
               onError={handleMediaError}
             />
           )}

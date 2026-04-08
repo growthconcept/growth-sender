@@ -5,11 +5,21 @@ import MetricCard from '@/components/dashboard/MetricCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { BarChart3, Send, TrendingUp, Clock, Eye, Calendar as CalendarIcon } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, eachDayOfInterval, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import CampaignDetails from '@/components/CampaignDetails';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 const statusColors = {
   scheduled: 'warning',
@@ -56,10 +66,36 @@ function formatCampaignDate(rawDate) {
   return format(dateObj, "dd 'de' MMMM 'às' HH:mm", { locale: ptBR });
 }
 
+const PERIOD_OPTIONS = [
+  { value: '7d', label: '7 dias' },
+  { value: '30d', label: '30 dias' }
+];
+
+function buildChartData(messagesByDay, period) {
+  const days = period === '30d' ? 30 : 7;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = subDays(today, days - 1);
+
+  const countByDate = {};
+  (messagesByDay || []).forEach(({ date, count }) => {
+    countByDate[date] = Number(count);
+  });
+
+  return eachDayOfInterval({ start, end: today }).map((day) => {
+    const key = format(day, 'yyyy-MM-dd');
+    return {
+      date: format(day, 'dd/MM'),
+      enviadas: countByDate[key] || 0
+    };
+  });
+}
+
 export default function Dashboard() {
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [statsPeriod, setStatsPeriod] = useState('7d');
 
   // Formatar datas para o formato esperado pelo backend (YYYY-MM-DD)
   const formatDateForAPI = (dateString) => {
@@ -79,6 +115,17 @@ export default function Dashboard() {
     }
   });
 
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats', statsPeriod],
+    queryFn: async () => {
+      const response = await dashboard.getStats({ period: statsPeriod });
+      return response.data.stats;
+    }
+  });
+
+  const chartData = buildChartData(statsData?.messagesByDay, statsPeriod);
+  const totalInPeriod = chartData.reduce((acc, d) => acc + d.enviadas, 0);
+
   const { data: recentCampaigns, isLoading: campaignsLoading } = useQuery({
     queryKey: ['recent-campaigns'],
     queryFn: async () => {
@@ -96,8 +143,25 @@ export default function Dashboard() {
 
   if (metricsLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-lg text-muted-foreground">Carregando...</div>
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-6 space-y-3">
+              <div className="flex justify-between items-center">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-5 rounded-sm" />
+              </div>
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -179,6 +243,97 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Gráfico de Performance */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Mensagens Enviadas
+              </CardTitle>
+              {!statsLoading && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {totalInPeriod.toLocaleString('pt-BR')} mensagem{totalInPeriod !== 1 ? 's' : ''} nos últimos {statsPeriod === '7d' ? '7' : '30'} dias
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border p-1">
+              {PERIOD_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStatsPeriod(value)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    statsPeriod === value
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {statsLoading ? (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-end gap-2 h-48">
+                {Array.from({ length: statsPeriod === '7d' ? 7 : 14 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="flex-1 rounded-sm"
+                    style={{ height: `${20 + Math.random() * 80}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : totalInPeriod === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
+              <Send className="h-8 w-8 opacity-30" />
+              <p className="text-sm">Nenhuma mensagem enviada neste período</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={statsPeriod === '30d' ? 4 : 0}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: 'hsl(var(--accent))' }}
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '13px'
+                  }}
+                  formatter={(value) => [value.toLocaleString('pt-BR'), 'Enviadas']}
+                  labelFormatter={(label) => `Data: ${label}`}
+                />
+                <Bar
+                  dataKey="enviadas"
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Campanhas Recentes */}
       <Card>
         <CardHeader>
@@ -186,7 +341,24 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           {campaignsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end gap-2">
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                    <Skeleton className="h-8 w-28 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : !recentCampaigns || recentCampaigns.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma campanha criada ainda

@@ -1,6 +1,6 @@
 import { Connection, User } from '../models/index.js';
 import { Op } from 'sequelize';
-import evolutionAPI from '../services/evolutionAPI.js';
+import whatsappService from '../services/whatsapp.service.js';
 
 class ConnectionController {
   /**
@@ -12,40 +12,16 @@ class ConnectionController {
 
       console.log('Starting sync for user:', userId);
 
-      // Buscar instâncias da Evolution API
-      let instancesResponse;
+      // Buscar instâncias via provider ativo (retorna formato normalizado)
+      let instances;
       try {
-        instancesResponse = await evolutionAPI.fetchInstances();
-        console.log('Evolution API Response type:', typeof instancesResponse);
-        console.log('Evolution API Response:', JSON.stringify(instancesResponse, null, 2));
+        instances = await whatsappService.fetchInstances();
+        console.log('WhatsApp provider fetchInstances count:', instances.length);
       } catch (error) {
-        console.error('Error calling Evolution API:', error);
-        return res.status(500).json({ 
-          error: 'Failed to fetch instances from Evolution API',
-          details: error.message 
-        });
-      }
-
-      // A resposta pode vir em diferentes formatos
-      let instances = [];
-      
-      if (Array.isArray(instancesResponse)) {
-        instances = instancesResponse;
-        console.log('Found array format, instances count:', instances.length);
-      } else if (instancesResponse?.instances && Array.isArray(instancesResponse.instances)) {
-        instances = instancesResponse.instances;
-        console.log('Found instances property, count:', instances.length);
-      } else if (instancesResponse?.data?.instances && Array.isArray(instancesResponse.data.instances)) {
-        instances = instancesResponse.data.instances;
-        console.log('Found data.instances, count:', instances.length);
-      } else if (instancesResponse?.data && Array.isArray(instancesResponse.data)) {
-        instances = instancesResponse.data;
-        console.log('Found data array, count:', instances.length);
-      } else {
-        console.warn('Unexpected response format:', instancesResponse);
-        return res.json({
-          message: 'No instances found or unexpected response format',
-          connections: []
+        console.error('Error calling WhatsApp provider:', error);
+        return res.status(500).json({
+          error: 'Failed to fetch instances from WhatsApp provider',
+          details: error.message
         });
       }
 
@@ -58,32 +34,18 @@ class ConnectionController {
       }
 
       const connections = [];
-      const processedInstanceNames = new Set(); // Para rastrear instâncias processadas e evitar duplicatas
+      const processedInstanceNames = new Set();
 
-      // Processar cada instância
+      // Processar cada instância normalizada
       for (const instance of instances) {
         try {
-          // Extrair o nome da instância de diferentes formatos possíveis
-          let instanceName = null;
-          
-          if (typeof instance === 'string') {
-            instanceName = instance;
-          } else if (instance?.instanceName) {
-            instanceName = instance.instanceName;
-          } else if (instance?.instance?.instanceName) {
-            instanceName = instance.instance.instanceName;
-          } else if (instance?.name) {
-            instanceName = instance.name;
-          } else if (instance?.id) {
-            instanceName = instance.id;
-          }
+          const { instanceName, instanceToken, status, phoneNumber, profileName, profilePicUrl } = instance;
 
           if (!instanceName) {
-            console.warn('Could not extract instance name from:', JSON.stringify(instance));
+            console.warn('Instance without name, skipping:', instance);
             continue;
           }
 
-          // Verificar se já processamos esta instância (evitar duplicatas)
           if (processedInstanceNames.has(instanceName)) {
             console.warn(`Duplicate instance name detected: ${instanceName}, skipping`);
             continue;
@@ -92,98 +54,15 @@ class ConnectionController {
 
           console.log('Processing instance:', instanceName);
 
-          // Determinar status, phoneNumber, profilePicUrl e profileName diretamente da resposta
-          // A resposta de fetchInstances já contém essas informações
-          let status = 'disconnected';
-          let phoneNumber = null;
-          let profilePicUrl = null;
-          let profileName = null;
-
-          // Extrair connectionStatus (campo direto da resposta)
-          const connectionStatus = instance?.connectionStatus;
-          status = (connectionStatus === 'open' || connectionStatus === 'connected') ? 'connected' : 'disconnected';
-          
-          // Extrair ownerJid diretamente da resposta (campo correto da Evolution API)
-          const ownerJid = instance?.ownerJid || null;
-          
-          // Remover sufixo @s.whatsapp.net do ownerJid
-          if (ownerJid) {
-            phoneNumber = ownerJid.replace('@s.whatsapp.net', '');
-          }
-          
-          // Extrair profilePicUrl diretamente da resposta (campo correto da Evolution API)
-          profilePicUrl = instance?.profilePicUrl || null;
-          
-          // Extrair profileName diretamente da resposta (campo correto da Evolution API)
-          profileName = instance?.profileName || null;
-
-          // Se não encontrou os dados na resposta direta, tentar buscar via getInstanceInfo
-          if (!phoneNumber || !profilePicUrl) {
-            try {
-              const connectionInfo = await evolutionAPI.getInstanceInfo(instanceName);
-              if (connectionInfo) {
-                // Usar dados do getInstanceInfo como fallback
-                if (!phoneNumber) {
-                  const fallbackOwnerJid = connectionInfo?.ownerJid ||
-                                         connectionInfo?.instance?.ownerJid ||
-                                         connectionInfo?.instance?.owner || 
-                                         connectionInfo?.owner ||
-                                         connectionInfo?.data?.instance?.ownerJid ||
-                                         connectionInfo?.data?.instance?.owner ||
-                                         connectionInfo?.data?.ownerJid ||
-                                         connectionInfo?.data?.owner ||
-                                         null;
-                  if (fallbackOwnerJid) {
-                    phoneNumber = fallbackOwnerJid.replace('@s.whatsapp.net', '');
-                  }
-                }
-                
-                if (!profilePicUrl) {
-                  profilePicUrl = connectionInfo?.profilePicUrl ||
-                                connectionInfo?.instance?.profilePicUrl ||
-                                connectionInfo?.data?.profilePicUrl ||
-                                connectionInfo?.data?.instance?.profilePicUrl ||
-                                connectionInfo?.profilePictureUrl ||
-                                connectionInfo?.instance?.profilePictureUrl ||
-                                connectionInfo?.data?.profilePictureUrl ||
-                                connectionInfo?.data?.instance?.profilePictureUrl ||
-                                null;
-                }
-                
-                if (!profileName) {
-                  profileName = connectionInfo?.profileName ||
-                              connectionInfo?.instance?.profileName ||
-                              connectionInfo?.data?.profileName ||
-                              connectionInfo?.data?.instance?.profileName ||
-                              null;
-                }
-                
-                // Atualizar status se necessário
-                const fallbackState = connectionInfo?.connectionStatus ||
-                                    connectionInfo?.instance?.state || 
-                                    connectionInfo?.state || 
-                                    connectionInfo?.data?.instance?.state ||
-                                    connectionInfo?.data?.state;
-                if (fallbackState) {
-                  status = (fallbackState === 'open' || fallbackState === 'connected') ? 'connected' : 'disconnected';
-                }
-              }
-            } catch (error) {
-              console.warn(`Could not get info for instance ${instanceName}:`, error.message);
-              // Continuar mesmo se não conseguir buscar info
-            }
-          }
-
-          // Verificar se já existe no banco (buscar apenas por instance_name - única por sistema)
+          // Verificar se já existe no banco
           let connection = await Connection.findOne({
-            where: {
-              instance_name: instanceName
-            }
+            where: { instance_name: instanceName }
           });
 
           if (connection) {
             // Atualizar conexão existente (mantém o user_id original)
             await connection.update({
+              instance_key: instanceToken,
               status,
               phone_number: phoneNumber,
               profile_pic_url: profilePicUrl,
@@ -195,7 +74,7 @@ class ConnectionController {
             connection = await Connection.create({
               user_id: userId,
               instance_name: instanceName,
-              instance_key: instanceName,
+              instance_key: instanceToken,
               status,
               phone_number: phoneNumber,
               profile_pic_url: profilePicUrl,
@@ -208,7 +87,6 @@ class ConnectionController {
         } catch (error) {
           console.error(`Error processing instance:`, error);
           console.error('Error stack:', error.stack);
-          // Continuar processando outras instâncias
         }
       }
 
@@ -389,11 +267,11 @@ class ConnectionController {
         return res.status(404).json({ error: 'Connection not found' });
       }
 
-      // Buscar status atual da Evolution API
-      const connectionInfo = await evolutionAPI.getInstanceInfo(connection.instance_name);
+      // Buscar status atual via provider ativo
+      const connectionInfo = await whatsappService.getInstanceInfo(connection.instance_key);
       const state = connectionInfo?.connectionStatus ||
-                   connectionInfo?.instance?.state || 
-                   connectionInfo?.state || 
+                   connectionInfo?.instance?.state ||
+                   connectionInfo?.state ||
                    connectionInfo?.data?.instance?.state ||
                    connectionInfo?.data?.state;
       const status = (state === 'open' || state === 'connected') ? 'connected' : 'disconnected';
@@ -465,13 +343,10 @@ class ConnectionController {
       }
 
       console.log(`Fetching groups for instance: ${connection.instance_name}`);
-      
-      // getParticipants pode ser passado via query string (opcional, padrão: false)
-      const getParticipants = req.query.getParticipants === 'true' || req.query.getParticipants === true;
-      
+
       let response;
       try {
-        response = await evolutionAPI.fetchAllGroups(connection.instance_name, getParticipants);
+        response = await whatsappService.fetchAllGroups(connection.instance_key);
       } catch (apiError) {
         console.error('Evolution API error:', apiError);
         throw apiError;

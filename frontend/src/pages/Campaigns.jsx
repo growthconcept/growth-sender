@@ -6,7 +6,27 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { Plus, Pause, X, RotateCcw, Trash2, ChevronDown, File, Filter, XCircle, Eye } from 'lucide-react';
+import { Plus, Pause, X, RotateCcw, Trash2, ChevronDown, File, Filter, XCircle, Eye, Upload, CheckCircle2, Download, ChevronRight, ChevronLeft, Check, Wifi, FileText, Users, Clock, Calendar, Tag, Megaphone, Settings2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import TemplatePreview from '@/components/TemplatePreview';
+
+const VALID_PHONE_RE = /^\d{10,13}$/;
+
+function parsePhoneNumbers(text) {
+  return text
+    .split('\n')
+    .map((r) => r.trim().replace(/\D/g, ''))
+    .filter((r) => VALID_PHONE_RE.test(r));
+}
+
+function parseCsvPhones(csvText) {
+  return csvText
+    .split('\n')
+    .map((line) => line.split(',')[0].trim().replace(/\D/g, ''))
+    .filter((r) => VALID_PHONE_RE.test(r));
+}
 import FeedbackBanner from '@/components/FeedbackBanner';
 import { useFeedback } from '@/hooks/useFeedback';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -92,22 +112,27 @@ function SearchableSelect({
   const selectedItem = items.find((item) => item.id === value);
 
   return (
-    <div ref={containerRef} className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div ref={containerRef} className="space-y-1.5">
+      {label != null && <Label htmlFor={id}>{label}</Label>}
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className={[
+            'flex w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            'focus:outline-none focus-visible:outline-none',
+            open ? 'border-primary' : 'border-input',
+          ].join(' ')}
         >
-          <span className={selectedItem ? '' : 'text-muted-foreground'}>
+          <span className={selectedItem ? 'text-foreground' : 'text-muted-foreground'}>
             {selectedItem ? selectedItem.label : placeholder}
           </span>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
         </button>
 
         {open && (
-          <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover shadow-lg">
+          <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover shadow-md">
             <div className="border-b p-2">
               <Input
                 ref={inputRef}
@@ -125,9 +150,7 @@ function SearchableSelect({
               ) : (
                 filteredItems.map((item) => {
                   const isActive = item.id === value;
-                  const subtitleText = renderSubtitle
-                    ? renderSubtitle(item)
-                    : item.subtitle;
+                  const subtitleText = renderSubtitle ? renderSubtitle(item) : item.subtitle;
 
                   return (
                     <button
@@ -137,14 +160,17 @@ function SearchableSelect({
                         onSelect(item.id);
                         setOpen(false);
                       }}
-                      className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted ${
+                      className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
                         isActive ? 'bg-muted' : ''
                       }`}
                     >
-                      <span className="font-medium">{item.label}</span>
-                      {subtitleText ? (
-                        <span className="text-xs text-muted-foreground">{subtitleText}</span>
-                      ) : null}
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">{item.label}</span>
+                        {subtitleText ? (
+                          <span className="text-xs text-muted-foreground truncate">{subtitleText}</span>
+                        ) : null}
+                      </div>
+                      {isActive && <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />}
                     </button>
                   );
                 })
@@ -157,10 +183,69 @@ function SearchableSelect({
   );
 }
 
+function WizardSteps({ currentStep }) {
+  const steps = [
+    { number: 1, label: 'Template' },
+    { number: 2, label: 'Destinatários' },
+    { number: 3, label: 'Configuração' },
+    { number: 4, label: 'Revisão' },
+  ];
+
+  return (
+    <div className="flex items-center mb-8 px-1">
+      {steps.flatMap((step, index) => {
+        const isCompleted = currentStep > step.number;
+        const isActive = currentStep === step.number;
+        const items = [
+          <div key={`step-${step.number}`} className="flex flex-col items-center gap-2 shrink-0">
+            <div
+              className={[
+                'w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200',
+                isActive
+                  ? 'bg-primary text-primary-foreground border-primary ring-4 ring-primary/15'
+                  : isCompleted
+                  ? 'bg-primary/10 text-primary border-primary'
+                  : 'bg-background text-muted-foreground/60 border-border',
+              ].join(' ')}
+            >
+              {isCompleted ? <Check className="h-4 w-4" /> : step.number}
+            </div>
+            <span
+              className={[
+                'text-xs font-medium whitespace-nowrap transition-colors',
+                isActive ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground/60',
+              ].join(' ')}
+            >
+              {step.label}
+            </span>
+          </div>,
+        ];
+
+        if (index < steps.length - 1) {
+          items.push(
+            <div
+              key={`connector-${step.number}`}
+              className={[
+                'flex-1 h-px mb-6 mx-3 transition-colors duration-300',
+                isCompleted ? 'bg-primary' : 'bg-border',
+              ].join(' ')}
+            />
+          );
+        }
+
+        return items;
+      })}
+    </div>
+  );
+}
+
 export default function Campaigns() {
   const queryClient = useQueryClient();
   const { feedback, showFeedback, dismissFeedback } = useFeedback();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [schedulingEnabled, setSchedulingEnabled] = useState(false);
+  const [scheduledDateTime, setScheduledDateTime] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     connection_id: '',
@@ -189,6 +274,14 @@ export default function Campaigns() {
     date_to: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
 
   const { data: campaignsList, isLoading } = useQuery({
@@ -263,6 +356,9 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries(['campaigns']);
       setShowCreateForm(false);
+      setWizardStep(1);
+      setSchedulingEnabled(false);
+      setScheduledDateTime(null);
       setFormData({
         name: '',
         connection_id: '',
@@ -345,7 +441,7 @@ export default function Campaigns() {
   });
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
     if (!formData.connection_id || !formData.template_id) {
       showFeedback('error', 'Selecione uma conexão e um template');
@@ -363,8 +459,8 @@ export default function Campaigns() {
     } else {
       recipients = formData.recipients
         .split('\n')
-        .map(r => r.trim().replace(/\D/g, ''))
-        .filter(r => r.length > 0);
+        .map((r) => r.trim().replace(/\D/g, ''))
+        .filter((r) => r.length > 0);
       
       if (recipients.length === 0) {
         showFeedback('error', 'Adicione pelo menos um destinatário');
@@ -384,18 +480,52 @@ export default function Campaigns() {
     pause_duration_seconds: parseInt(formData.pause_duration_seconds, 10) || null
     };
 
-    // Adicionar scheduled_date apenas se tiver valor
-    if (formData.scheduled_date && formData.scheduled_date.trim() !== '') {
-      // Converter para formato ISO se necessário
-      const date = new Date(formData.scheduled_date);
-      if (!isNaN(date.getTime())) {
-        payload.scheduled_date = date.toISOString();
-      }
+    // Adicionar scheduled_date apenas se agendamento estiver ativo
+    if (schedulingEnabled && scheduledDateTime) {
+      payload.scheduled_date = scheduledDateTime.toISOString();
     }
 
-    console.log('Sending payload:', payload); // Para debug
-
     createMutation.mutate(payload);
+  };
+
+  const validateStep1 = () => {
+    if (!formData.name.trim()) {
+      showFeedback('error', 'Informe o nome da campanha');
+      return false;
+    }
+    if (!formData.connection_id) {
+      showFeedback('error', 'Selecione uma conexão');
+      return false;
+    }
+    if (!formData.template_id) {
+      showFeedback('error', 'Selecione um template');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    if (formData.recipient_type === 'group') {
+      if (formData.selectedGroups.length === 0) {
+        showFeedback('error', 'Selecione pelo menos um grupo');
+        return false;
+      }
+    } else {
+      const phones = parsePhoneNumbers(formData.recipients);
+      if (phones.length === 0) {
+        showFeedback('error', 'Adicione pelo menos um destinatário válido');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleCloseForm = () => {
+    setShowCreateForm(false);
+    setWizardStep(1);
+    setSchedulingEnabled(false);
+    setScheduledDatePart('');
+    setScheduledTimePart('');
   };
 
   const connectionOptions = useMemo(
@@ -464,6 +594,21 @@ export default function Campaigns() {
     );
   }, [filters]);
 
+  const sortedCampaigns = useMemo(() => {
+    if (!campaignsList) return [];
+    if (!sortConfig.key) return campaignsList;
+    return [...campaignsList].sort((a, b) => {
+      let aVal, bVal;
+      if (sortConfig.key === 'name') { aVal = a.name || ''; bVal = b.name || ''; }
+      else if (sortConfig.key === 'status') { aVal = a.status || ''; bVal = b.status || ''; }
+      else if (sortConfig.key === 'sent') { aVal = a.sent_count || 0; bVal = b.sent_count || 0; }
+      else return 0;
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [campaignsList, sortConfig]);
+
   const handleClearFilters = () => {
     setFilters({
       status: '',
@@ -491,6 +636,7 @@ export default function Campaigns() {
 
       <FeedbackBanner feedback={feedback} onDismiss={dismissFeedback} />
 
+      {!showCreateForm && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-lg">Filtros</CardTitle>
@@ -520,21 +666,24 @@ export default function Campaigns() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
-                <Label htmlFor="filter_status">Status</Label>
-                <select
-                  id="filter_status"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                <Label>Status</Label>
+                <Select
+                  value={filters.status || '_all'}
+                  onValueChange={(val) => setFilters({ ...filters, status: val === '_all' ? '' : val })}
                 >
-                  <option value="">Todos</option>
-                  <option value="scheduled">Agendada</option>
-                  <option value="running">Em Execução</option>
-                  <option value="completed">Concluída</option>
-                  <option value="paused">Pausada</option>
-                  <option value="cancelled">Cancelada</option>
-                  <option value="error">Erro</option>
-                </select>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Todos</SelectItem>
+                    <SelectItem value="scheduled">Agendada</SelectItem>
+                    <SelectItem value="running">Em Execução</SelectItem>
+                    <SelectItem value="completed">Concluída</SelectItem>
+                    <SelectItem value="paused">Pausada</SelectItem>
+                    <SelectItem value="cancelled">Cancelada</SelectItem>
+                    <SelectItem value="error">Erro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -614,6 +763,7 @@ export default function Campaigns() {
           </CardContent>
         )}
       </Card>
+      )}
 
       {showCreateForm && (
         <Card>
@@ -621,292 +771,655 @@ export default function Campaigns() {
             <CardTitle>Nova Campanha</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="name">Nome da Campanha *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="Ex: Campanha de Promoção"
-                />
-              </div>
+            <WizardSteps currentStep={wizardStep} />
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SearchableSelect
-                  id="connection_id"
-                  label="Conexão *"
-                  placeholder="Selecione uma conexão"
-                  items={connectionOptions}
-                  value={formData.connection_id}
-                  onSelect={(id) => setFormData((prev) => ({ ...prev, connection_id: id }))}
-                  renderSubtitle={(item) =>
-                    item.subtitle ? `WhatsApp: ${item.subtitle}` : ''
-                  }
-                />
-
-                <SearchableSelect
-                  id="template_id"
-                  label="Template *"
-                  placeholder="Selecione um template"
-                  items={templateOptions}
-                  value={formData.template_id}
-                  onSelect={(id) => setFormData((prev) => ({ ...prev, template_id: id }))}
-                  renderSubtitle={(item) => `Tipo: ${item.subtitle}`}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="recipient_type">Tipo de Destinatário *</Label>
-                <select
-                  id="recipient_type"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={formData.recipient_type}
-                  onChange={(e) => {
-                    setFormData({ 
-                      ...formData, 
-                      recipient_type: e.target.value,
-                      recipients: '',
-                      selectedGroups: []
-                    });
-                  }}
-                  required
-                >
-                  <option value="contacts">Contatos</option>
-                  <option value="group">Grupo</option>
-                </select>
-              </div>
-
-              {formData.recipient_type === 'contacts' ? (
-                <div>
-                  <Label htmlFor="recipients">Destinatários *</Label>
-                  <textarea
-                    id="recipients"
-                    className="w-full px-3 py-2 border rounded-md font-mono"
-                    rows={6}
-                    value={formData.recipients}
-                    onChange={(e) => setFormData({ ...formData, recipients: e.target.value })}
-                    required
-                    placeholder="5511999999999&#10;5511888888888"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Um número por linha (código do país + DDD + número)
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <Label htmlFor="groups">Selecione os Grupos *</Label>
-                  {!formData.connection_id ? (
-                    <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
-                      Selecione uma conexão primeiro
+            {/* Step 1: Template */}
+            {wizardStep === 1 && (
+              <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="space-y-4">
+                  {/* Seção: Identificação */}
+                  <div className="rounded-xl border bg-card">
+                    <div className="flex items-center gap-2.5 px-5 py-3.5 border-b bg-muted/30 rounded-t-xl">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Tag className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">Identificação</span>
                     </div>
-                  ) : loadingGroups ? (
-                    <div className="w-full px-3 py-2 border rounded-md text-center text-muted-foreground">
-                      Carregando grupos...
-                    </div>
-                  ) : groupsList.length === 0 ? (
-                    <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
-                      Nenhum grupo encontrado para esta conexão
-                    </div>
-                  ) : (
-                    <div className="w-full border rounded-md max-h-60 overflow-y-auto">
-                      {groupsList.map((group) => {
-                        // Priorizar jid (formato padrão do WhatsApp para grupos), depois id, depois groupId
-                        const groupId = group.jid || group.id || group.groupId;
-                        const groupName = group.subject || group.name || groupId;
-                        const isSelected = formData.selectedGroups.includes(groupId);
-                        
-                        return (
-                          <div
-                            key={groupId}
-                            className={`px-3 py-2 border-b last:border-b-0 cursor-pointer hover:bg-muted ${
-                              isSelected ? 'bg-primary/10' : ''
-                            }`}
-                            onClick={() => {
-                              setFormData(prev => {
-                                const newSelected = isSelected
-                                  ? prev.selectedGroups.filter(id => id !== groupId)
-                                  : [...prev.selectedGroups, groupId];
-                                return { ...prev, selectedGroups: newSelected };
-                              });
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{groupName}</span>
-                              {isSelected && (
-                                <span className="text-primary text-sm">✓ Selecionado</span>
-                              )}
-                            </div>
-                            {group.participants && (
-                              <span className="text-xs text-muted-foreground">
-                                {group.participants.length} participantes
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {formData.selectedGroups.length > 0 && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {formData.selectedGroups.length} grupo(s) selecionado(s)
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="message_interval">Intervalo entre mensagens (segundos) *</Label>
-                  <Input
-                    id="message_interval"
-                    type="number"
-                    min="10"
-                    value={formData.message_interval}
-                    onChange={(e) => setFormData({ ...formData, message_interval: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pause_after_messages">Pausar após</Label>
-                  <select
-                    id="pause_after_messages"
-                    className="w-full px-3 py-2 border rounded-md"
-                    value={formData.pause_after_messages}
-                    onChange={(e) => setFormData({ ...formData, pause_after_messages: e.target.value })}
-                  >
-                    {[5, 10, 15, 20, 25, 30].map((option) => (
-                      <option key={option} value={option}>
-                        {option} mensagens
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="pause_duration_seconds">Pausar por</Label>
-                  <select
-                    id="pause_duration_seconds"
-                    className="w-full px-3 py-2 border rounded-md"
-                    value={formData.pause_duration_seconds}
-                    onChange={(e) => setFormData({ ...formData, pause_duration_seconds: e.target.value })}
-                  >
-                    {[30, 45, 60, 90, 120].map((option) => (
-                      <option key={option} value={option}>
-                        {option} segundos
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="scheduled_date">Data Agendada (opcional)</Label>
-                <Input
-                  id="scheduled_date"
-                  type="datetime-local"
-                  value={formData.scheduled_date}
-                  onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Criando...' : 'Criar Campanha'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateForm(false)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-              <div className="flex justify-center lg:justify-end">
-                <div className="w-full max-w-xs rounded-[32px] border-[14px] border-black bg-black shadow-2xl overflow-hidden">
-                  <div className="h-8 border-b border-white/10 flex items-center justify-between px-6 text-white text-xs opacity-70">
-                    <span>18:34</span>
-                    <div className="flex gap-1 items-center">
-                      <span>5G</span>
-                      <span>100%</span>
+                    <div className="px-5 py-4">
+                      <Label htmlFor="name" className="mb-1.5 block">Nome da Campanha <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ex: Promoção de Março"
+                        className="max-w-md"
+                      />
                     </div>
                   </div>
-                  <div className="bg-[#ECE5DD] min-h-[520px] px-3 pb-6 pt-4 flex flex-col">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full bg-[#34B7F1] flex items-center justify-center text-white text-sm font-semibold">
-                        GC
+
+                  {/* Seção: Conexão & Template */}
+                  <div className="rounded-xl border bg-card">
+                    <div className="flex items-center gap-2.5 px-5 py-3.5 border-b bg-muted/30 rounded-t-xl">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Settings2 className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">Conexão &amp; Template</span>
+                    </div>
+                    <div className="px-5 py-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Label htmlFor="connection_id">Conexão WhatsApp <span className="text-destructive">*</span></Label>
+                        </div>
+                        <SearchableSelect
+                          id="connection_id"
+                          placeholder="Selecione uma conexão"
+                          items={connectionOptions}
+                          value={formData.connection_id}
+                          onSelect={(id) => setFormData((prev) => ({ ...prev, connection_id: id }))}
+                          renderSubtitle={(item) => item.subtitle ? `WhatsApp: ${item.subtitle}` : ''}
+                        />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-[#075E54]">
-                          Growth Concept
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Label htmlFor="template_id">Template de Mensagem <span className="text-destructive">*</span></Label>
                         </div>
-                        <div className="text-[11px] text-[#667781]">
-                          online
-                        </div>
+                        <SearchableSelect
+                          id="template_id"
+                          placeholder="Selecione um template"
+                          items={templateOptions}
+                          value={formData.template_id}
+                          onSelect={(id) => setFormData((prev) => ({ ...prev, template_id: id }))}
+                          renderSubtitle={(item) => `Tipo: ${item.subtitle}`}
+                        />
                       </div>
                     </div>
-                    <div className="flex-1 space-y-3">
-                      <div className="flex justify-center">
-                        <div className="text-[10px] px-3 py-1 rounded-full bg-white text-[#54656F] border border-[#D1D7DB]">
-                          Hoje
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => { if (validateStep1()) setWizardStep(2); }}
+                    >
+                      Próximo
+                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                    <Button size="sm" type="button" variant="outline" onClick={handleCloseForm}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Preview do template */}
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">Pré-visualização</p>
+                  <div className="flex justify-center">
+                    <TemplatePreview
+                      messageType={selectedTemplate?.message_type}
+                      textContent={selectedTemplate?.text_content}
+                      previewUrl={selectedTemplate?.media_url}
+                      interactiveContent={selectedTemplate?.interactive_content}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Destinatários */}
+            {wizardStep === 2 && (
+              <div className="space-y-4">
+
+                {/* Seção: Destinatários */}
+                <div className="rounded-xl border bg-card">
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30 rounded-t-xl">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Users className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">Destinatários</span>
+                    </div>
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg border bg-background">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, recipient_type: 'contacts', recipients: '', selectedGroups: [] })}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                          formData.recipient_type === 'contacts'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Contatos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, recipient_type: 'group', recipients: '', selectedGroups: [] })}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                          formData.recipient_type === 'group'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Grupos
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    {formData.recipient_type === 'contacts' ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label htmlFor="recipients" className="text-sm font-medium">Números de telefone <span className="text-destructive">*</span></Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">Um número por linha — código do país + DDD + número (ex: 5511999999999)</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary hover:underline"
+                              onClick={() => {
+                                const csv = 'telefone\n5511999999999\n5521988888888\n5531977777777\n';
+                                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'modelo_destinatarios.csv';
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Baixar modelo CSV
+                            </button>
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept=".csv,text/csv"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => {
+                                    const phones = parseCsvPhones(ev.target.result);
+                                    setFormData((prev) => ({ ...prev, recipients: phones.join('\n') }));
+                                  };
+                                  reader.readAsText(file);
+                                  e.target.value = '';
+                                }}
+                              />
+                              <span className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                                <Upload className="h-3.5 w-3.5" />
+                                Importar CSV
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                        <textarea
+                          id="recipients"
+                          className="w-full px-3 py-3 border border-input rounded-md font-mono text-sm bg-background resize-none focus:outline-none focus:border-primary transition-colors"
+                          rows={14}
+                          value={formData.recipients}
+                          onChange={(e) => setFormData({ ...formData, recipients: e.target.value })}
+                          placeholder="5511999999999&#10;5521988888888&#10;5531977777777&#10;..."
+                        />
+                        {(() => {
+                          const validCount = parsePhoneNumbers(formData.recipients).length;
+                          const totalLines = formData.recipients.split('\n').filter((l) => l.trim()).length;
+                          if (totalLines === 0) return null;
+                          return (
+                            <div className="flex items-center gap-3">
+                              <p className="text-sm flex items-center gap-1.5 text-muted-foreground">
+                                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                                <span className="font-medium text-foreground">{validCount}</span> número{validCount !== 1 ? 's' : ''} válido{validCount !== 1 ? 's' : ''}
+                                {totalLines !== validCount && (
+                                  <span className="text-destructive/70 ml-1">
+                                    · {totalLines - validCount} inválido{totalLines - validCount !== 1 ? 's' : ''} (serão ignorados)
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="groups" className="text-sm font-medium">Grupos disponíveis <span className="text-destructive">*</span></Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">Selecione um ou mais grupos para receber a campanha</p>
+                        </div>
+                        {!formData.connection_id ? (
+                          <div className="flex items-center gap-2 px-4 py-4 rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground">
+                            <Wifi className="h-4 w-4 shrink-0" />
+                            Selecione uma conexão na etapa anterior para ver os grupos
+                          </div>
+                        ) : loadingGroups ? (
+                          <div className="flex items-center gap-2 px-4 py-4 rounded-lg border text-sm text-muted-foreground">
+                            <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                            Carregando grupos...
+                          </div>
+                        ) : groupsList.length === 0 ? (
+                          <div className="flex items-center gap-2 px-4 py-4 rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground">
+                            <Users className="h-4 w-4 shrink-0" />
+                            Nenhum grupo encontrado para esta conexão
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border divide-y max-h-80 overflow-y-auto">
+                            {groupsList.map((group) => {
+                              const groupId = group.jid || group.id || group.groupId;
+                              const groupName = group.subject || group.name || groupId;
+                              const isSelected = formData.selectedGroups.includes(groupId);
+                              return (
+                                <button
+                                  key={groupId}
+                                  type="button"
+                                  className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm transition-colors hover:bg-muted ${
+                                    isSelected ? 'bg-primary/5' : ''
+                                  }`}
+                                  onClick={() => {
+                                    setFormData(prev => {
+                                      const newSelected = isSelected
+                                        ? prev.selectedGroups.filter(id => id !== groupId)
+                                        : [...prev.selectedGroups, groupId];
+                                      return { ...prev, selectedGroups: newSelected };
+                                    });
+                                  }}
+                                >
+                                  <div>
+                                    <span className="font-medium">{groupName}</span>
+                                    {group.participants && (
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        {group.participants.length} participantes
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {formData.selectedGroups.length > 0 && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span className="font-medium text-foreground">{formData.selectedGroups.length}</span> grupo{formData.selectedGroups.length !== 1 ? 's' : ''} selecionado{formData.selectedGroups.length !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => { if (validateStep2()) setWizardStep(3); }}
+                  >
+                    Próximo
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                  <Button size="sm" type="button" variant="outline" onClick={() => setWizardStep(1)}>
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    Voltar
+                  </Button>
+                  <Button size="sm" type="button" variant="ghost" onClick={handleCloseForm}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Configuração */}
+            {wizardStep === 3 && (
+              <div className="space-y-4">
+
+                {/* Seção: Cadência de Envio */}
+                <div className="rounded-xl border bg-card">
+                  <div className="flex items-center gap-2.5 px-5 py-3.5 border-b bg-muted/30 rounded-t-xl">
+                    <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-semibold">Cadência de Envio</span>
+                  </div>
+                  <div className="px-5 py-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                      <Label htmlFor="message_interval" className="mb-1.5 block">
+                        Intervalo entre mensagens <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="message_interval"
+                          type="number"
+                          min="10"
+                          value={formData.message_interval}
+                          onChange={(e) => setFormData({ ...formData, message_interval: e.target.value })}
+                          className="pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">s</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="mb-1.5 block">Pausar após</Label>
+                      <Select
+                        value={String(formData.pause_after_messages)}
+                        onValueChange={(val) => setFormData({ ...formData, pause_after_messages: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[5, 10, 15, 20, 25, 30].map((option) => (
+                            <SelectItem key={option} value={String(option)}>{option} mensagens</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="mb-1.5 block">Pausar por</Label>
+                      <Select
+                        value={String(formData.pause_duration_seconds)}
+                        onValueChange={(val) => setFormData({ ...formData, pause_duration_seconds: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[30, 45, 60, 90, 120].map((option) => (
+                            <SelectItem key={option} value={String(option)}>{option} segundos</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção: Agendamento */}
+                <div className="rounded-xl border bg-card">
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30 rounded-t-xl">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Calendar className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold">Agendamento</span>
+                      <span className="text-xs text-muted-foreground">opcional</span>
+                    </div>
+                    {/* Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !schedulingEnabled;
+                        setSchedulingEnabled(next);
+                        if (!next) setScheduledDateTime(null);
+                      }}
+                      className={[
+                        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none',
+                        schedulingEnabled ? 'bg-primary' : 'bg-input',
+                      ].join(' ')}
+                      aria-pressed={schedulingEnabled}
+                    >
+                      <span
+                        className={[
+                          'inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200',
+                          schedulingEnabled ? 'translate-x-6' : 'translate-x-1',
+                        ].join(' ')}
+                      />
+                    </button>
+                  </div>
+
+                  {schedulingEnabled ? (
+                    <div className="px-5 py-4 space-y-3">
+                      <Label className="block text-sm">Data e hora de início</Label>
+                      <DateTimePicker
+                        value={scheduledDateTime}
+                        onChange={setScheduledDateTime}
+                        minDate={new Date()}
+                        placeholder="Selecionar data e hora"
+                      />
+                      {scheduledDateTime && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                          <p className="text-sm text-foreground">
+                            Campanha agendada para{' '}
+                            <span className="font-semibold">
+                              {scheduledDateTime.toLocaleString('pt-BR', {
+                                weekday: 'long',
+                                day: '2-digit',
+                                month: 'long',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-4">
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        A campanha será iniciada imediatamente após a criação
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => setWizardStep(4)}
+                  >
+                    Próximo
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                  <Button size="sm" type="button" variant="outline" onClick={() => setWizardStep(2)}>
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    Voltar
+                  </Button>
+                  <Button size="sm" type="button" variant="ghost" onClick={handleCloseForm}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Revisão */}
+            {wizardStep === 4 && (
+              <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="space-y-3">
+                  {/* Nome da campanha */}
+                  <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Megaphone className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground mb-0.5">Nome da Campanha</p>
+                      <p className="font-semibold text-sm">{formData.name}</p>
+                    </div>
+                  </div>
+
+                  {/* Conexão & Template */}
+                  <div className="rounded-xl border bg-card">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-muted/30 rounded-t-xl">
+                      <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Configuração</p>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x">
+                      <div className="p-4 flex items-start gap-2.5">
+                        <Wifi className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-0.5">Conexão</p>
+                          <p className="text-sm font-medium truncate">
+                            {connectionOptions.find(c => c.id === formData.connection_id)?.label || '—'}
+                          </p>
+                          {connectionOptions.find(c => c.id === formData.connection_id)?.subtitle && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {connectionOptions.find(c => c.id === formData.connection_id).subtitle}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="flex justify-end">
-                        <div className="relative max-w-[80%] bg-[#DCF7C5] text-[#111B21] px-3 py-2.5 rounded-2xl rounded-br-sm shadow-sm border border-[#D1E7C5] space-y-2">
-                          {selectedTemplate && selectedTemplate.message_type !== 'text' && selectedTemplate.media_url && (
-                            <>
-                              {selectedTemplate.message_type === 'image' && (
-                                <img
-                                  src={selectedTemplate.media_url}
-                                  alt="preview"
-                                  className="rounded-xl max-h-40 max-w-full object-contain bg-white"
-                                />
-                              )}
-                              {selectedTemplate.message_type === 'video' && (
-                                <video
-                                  src={selectedTemplate.media_url}
-                                  controls
-                                  className="rounded-xl max-h-40 max-w-full object-contain bg-black"
-                                />
-                              )}
-                              {selectedTemplate.message_type === 'audio' && (
-                                <audio controls className="w-full">
-                                  <source src={selectedTemplate.media_url} type="audio/mpeg" />
-                                  Seu navegador não suporta áudio.
-                                </audio>
-                              )}
-                              {selectedTemplate.message_type === 'document' && (
-                                <div className="flex items-center gap-2 text-sm text-[#111B21]/80">
-                                  <File className="h-4 w-4" />
-                                  <span>Documento anexado</span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          <p className="text-sm whitespace-pre-line">
-                            {selectedTemplate?.text_content
-                              ? selectedTemplate.text_content
-                              : 'Selecione um template para visualizar a prévia'}
+                      <div className="p-4 flex items-start gap-2.5">
+                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground mb-0.5">Template</p>
+                          <p className="text-sm font-medium truncate">
+                            {templateOptions.find(t => t.id === formData.template_id)?.label || '—'}
                           </p>
-                          <div className="flex items-center justify-end gap-1 text-[10px] text-[#4F7E67]">
-                            <span>18:34</span>
-                            <span>✓✓</span>
-                          </div>
+                          {templateOptions.find(t => t.id === formData.template_id)?.subtitle && (
+                            <Badge variant="secondary" className="text-[10px] mt-1 capitalize">
+                              {templateOptions.find(t => t.id === formData.template_id).subtitle}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Destinatários */}
+                  <div className="rounded-xl border bg-card p-4 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Users className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Destinatários</p>
+                      {formData.recipient_type === 'group' ? (
+                        <p className="text-sm font-semibold">
+                          {formData.selectedGroups.length} grupo{formData.selectedGroups.length !== 1 ? 's' : ''}
+                        </p>
+                      ) : (
+                        <p className="text-sm font-semibold">
+                          {parsePhoneNumbers(formData.recipients).length} contato{parsePhoneNumbers(formData.recipients).length !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Configurações de envio */}
+                  <div className="rounded-xl border bg-card">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-muted/30 rounded-t-xl">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cadência de Envio</p>
+                    </div>
+                    <div className="grid grid-cols-3 divide-x">
+                      <div className="px-4 py-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Intervalo</p>
+                        <p className="text-sm font-semibold">{formData.message_interval}<span className="text-xs text-muted-foreground ml-0.5">s</span></p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Pausar após</p>
+                        <p className="text-sm font-semibold">{formData.pause_after_messages}<span className="text-xs text-muted-foreground ml-0.5">msgs</span></p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Pausar por</p>
+                        <p className="text-sm font-semibold">{formData.pause_duration_seconds}<span className="text-xs text-muted-foreground ml-0.5">s</span></p>
+                      </div>
+                    </div>
+                    {schedulingEnabled && scheduledDateTime && (
+                      <div className="px-4 py-3 border-t flex items-center gap-2.5">
+                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Agendado para</p>
+                          <p className="text-sm font-medium">
+                            {scheduledDateTime.toLocaleString('pt-BR', {
+                              weekday: 'long',
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {!schedulingEnabled && (
+                      <div className="px-4 py-3 border-t flex items-center gap-2.5">
+                        <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-sm text-muted-foreground">Inicia imediatamente após criação</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={createMutation.isPending}
+                    >
+                      {createMutation.isPending ? 'Criando...' : 'Criar Campanha'}
+                    </Button>
+                    <Button size="sm" type="button" variant="outline" onClick={() => setWizardStep(3)}>
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      Voltar
+                    </Button>
+                    <Button size="sm" type="button" variant="ghost" onClick={handleCloseForm}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Preview do template */}
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">Pré-visualização</p>
+                  <div className="flex justify-center">
+                    <TemplatePreview
+                      messageType={selectedTemplate?.message_type}
+                      textContent={selectedTemplate?.text_content}
+                      previewUrl={selectedTemplate?.media_url}
+                      interactiveContent={selectedTemplate?.interactive_content}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+      {!showCreateForm && (isLoading ? (
+        <div className="rounded-lg border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  {['Nome', 'Status', 'Progresso', 'Conexão', 'Template', 'Criado por', 'Ações'].map((col) => (
+                    <th key={col} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="hover:bg-muted/30">
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-2 w-32 rounded-full" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : !campaignsList || campaignsList.length === 0 ? (
       <Card>
         <CardContent className="py-12 text-center">
@@ -916,178 +1429,141 @@ export default function Campaigns() {
         </CardContent>
       </Card>
       ) : (
-        <div className="space-y-4">
-          {campaignsList.map((campaign) => (
-            <Card key={campaign.id}>
-              <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                <div className="space-y-1 flex-1">
-                  <CardTitle className="text-lg">{campaign.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={statusColors[campaign.status]}>
-                      {statusLabels[campaign.status]}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {campaign.sent_count || 0} enviadas / {campaign.error_count || 0} erros
-                    </span>
-                  </div>
-                  {(() => {
-                    const recipientsArray = Array.isArray(campaign.recipients)
-                      ? campaign.recipients
-                      : typeof campaign.recipients === 'string'
-                      ? (() => {
-                          try {
-                            const parsed = JSON.parse(campaign.recipients);
-                            return Array.isArray(parsed) ? parsed : [];
-                          } catch {
-                            return campaign.recipients
-                              .split(',')
-                              .map((item) => item.trim())
-                              .filter(Boolean);
-                          }
-                        })()
-                      : [];
+        <div className="rounded-lg border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  {[
+                    { key: 'name', label: 'Nome' },
+                    { key: 'status', label: 'Status' },
+                  ].map(({ key, label }) => (
+                    <th key={key} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSort(key)}
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      >
+                        {label}
+                        {sortConfig.key === key ? (
+                          sortConfig.direction === 'asc'
+                            ? <ArrowUp className="h-3 w-3 text-primary" />
+                            : <ArrowDown className="h-3 w-3 text-primary" />
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Progresso</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Conexão</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Template</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">Criado por</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground whitespace-nowrap">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {sortedCampaigns.map((campaign) => {
+                  const recipientsArray = Array.isArray(campaign.recipients)
+                    ? campaign.recipients
+                    : typeof campaign.recipients === 'string'
+                    ? (() => {
+                        try {
+                          const parsed = JSON.parse(campaign.recipients);
+                          return Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                          return campaign.recipients.split(',').map((item) => item.trim()).filter(Boolean);
+                        }
+                      })()
+                    : [];
+                  const totalRecipients = recipientsArray.length;
+                  const processed = (campaign.sent_count || 0) + (campaign.error_count || 0);
+                  const percent = totalRecipients > 0 ? Math.min(100, Math.round((processed / totalRecipients) * 100)) : 0;
 
-                    const totalRecipients = recipientsArray.length;
-                    const processed = (campaign.sent_count || 0) + (campaign.error_count || 0);
-                    const percent = totalRecipients > 0 ? Math.min(100, Math.round((processed / totalRecipients) * 100)) : 0;
-
-                    if (totalRecipients === 0) {
-                      return null;
-                    }
-
-                    return (
-                      <div className="mt-3 space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>
-                            {processed}/{totalRecipients} mensagens processadas
-                          </span>
-                          <span>{percent}%</span>
+                  return (
+                    <tr key={campaign.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium max-w-[220px]">
+                        <span className="truncate block">{campaign.name}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <Badge variant={statusColors[campaign.status]}>
+                          {statusLabels[campaign.status]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 min-w-[160px]">
+                        {totalRecipients > 0 ? (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{processed}/{totalRecipients}</span>
+                              <span>{percent}%</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-muted">
+                              <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[160px]">
+                        <span className="truncate block">{campaign.connection?.instance_name || 'N/A'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[160px]">
+                        <span className="truncate block">{campaign.template?.name || 'N/A'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                        {campaign.user?.name || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedCampaignId(campaign.id)}
+                            title="Ver detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {campaign.status === 'running' && (
+                            <Button variant="ghost" size="icon" onClick={() => pauseMutation.mutate(campaign.id)}>
+                              <Pause className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {campaign.status === 'paused' && (
+                            <Button variant="ghost" size="icon" onClick={() => resumeMutation.mutate(campaign.id)}>
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(campaign.status === 'running' || campaign.status === 'paused' || campaign.status === 'scheduled') && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setConfirmDialog({ open: true, type: 'cancel', campaign })}
+                              disabled={cancelMutation.isPending && confirmDialog.type === 'cancel' && confirmDialog.campaign?.id === campaign.id}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {campaign.status !== 'running' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setConfirmDialog({ open: true, type: 'delete', campaign })}
+                              disabled={deleteMutation.isPending && confirmDialog.type === 'delete' && confirmDialog.campaign?.id === campaign.id}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                        <div className="h-2 w-full rounded-full bg-muted">
-                          <div
-                            className="h-2 rounded-full bg-primary transition-all"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setSelectedCampaignId(campaign.id)}
-                    title="Ver detalhes"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  {campaign.status === 'running' && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => pauseMutation.mutate(campaign.id)}
-                    >
-                      <Pause className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {campaign.status === 'paused' && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => resumeMutation.mutate(campaign.id)}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {(campaign.status === 'running' || campaign.status === 'paused' || campaign.status === 'scheduled') && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        setConfirmDialog({
-                          open: true,
-                          type: 'cancel',
-                          campaign
-                        })
-                      }
-                      disabled={
-                        cancelMutation.isPending &&
-                        confirmDialog.type === 'cancel' &&
-                        confirmDialog.campaign?.id === campaign.id
-                      }
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {campaign.status !== 'running' && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        setConfirmDialog({
-                          open: true,
-                          type: 'delete',
-                          campaign
-                        })
-                      }
-                      disabled={
-                        deleteMutation.isPending &&
-                        confirmDialog.type === 'delete' &&
-                        confirmDialog.campaign?.id === campaign.id
-                      }
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Conexão:</span>
-                    <p className="font-medium">{campaign.connection?.instance_name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Template:</span>
-                    <p className="font-medium">{campaign.template?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Destinatários:</span>
-                    <p className="font-medium">{campaign.recipients?.length || 0}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Intervalo:</span>
-                    <p className="font-medium">{campaign.message_interval}s</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Criado por:</span>
-                    <p className="font-medium">{campaign.user?.name || 'N/A'}</p>
-                  </div>
-                </div>
-                {campaign.pause_after_messages && campaign.pause_duration_seconds && (
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    Pausa configurada: a cada{' '}
-                    <span className="font-medium text-slate-700 dark:text-slate-200">
-                      {campaign.pause_after_messages} mensagens
-                    </span>{' '}
-                    aguardar{' '}
-                    <span className="font-medium text-slate-700 dark:text-slate-200">
-                      {campaign.pause_duration_seconds} segundos
-                    </span>
-                    .
-                  </div>
-                )}
-                {campaign.started_at && (
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    Iniciada em: {new Date(campaign.started_at).toLocaleString('pt-BR')}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
+      ))}
 
       <ConfirmDialog
         open={confirmDialog.open}
