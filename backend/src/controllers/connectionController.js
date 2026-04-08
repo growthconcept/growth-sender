@@ -126,6 +126,25 @@ class ConnectionController {
         }
       }
 
+      // Remover duplicatas: mesmo instance_name, manter o mais antigo
+      const allConns = await Connection.findAll({
+        attributes: ['id', 'instance_name', 'created_at'],
+        order: [['created_at', 'ASC']]
+      });
+      const seenNames = new Map();
+      const duplicateIds = [];
+      for (const conn of allConns) {
+        if (seenNames.has(conn.instance_name)) {
+          duplicateIds.push(conn.id);
+        } else {
+          seenNames.set(conn.instance_name, conn.id);
+        }
+      }
+      if (duplicateIds.length > 0) {
+        await Connection.destroy({ where: { id: { [Op.in]: duplicateIds } } });
+        console.log(`Removed ${duplicateIds.length} duplicate connections`);
+      }
+
       console.log(`Sync completed. Processed ${connections.length} connections, found ${instances.length} instances in API`);
 
       res.json({
@@ -206,10 +225,18 @@ class ConnectionController {
         offset
       });
 
+      // Deduplica por instance_name (proteção contra duplicatas no banco)
+      const seenNames = new Set();
+      const uniqueConnections = connections.filter(conn => {
+        if (seenNames.has(conn.instance_name)) return false;
+        seenNames.add(conn.instance_name);
+        return true;
+      });
+
       const totalPages = Math.ceil(total / limit);
 
       res.json({
-        connections,
+        connections: uniqueConnections,
         pagination: {
           page,
           limit,

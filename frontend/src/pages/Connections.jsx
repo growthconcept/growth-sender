@@ -57,7 +57,11 @@ export default function Connections() {
     }
   });
 
-  const connectionsList = connectionsData?.connections || [];
+  const rawConnections = connectionsData?.connections || [];
+  // Deduplica por instance_name como proteção extra no frontend
+  const connectionsList = rawConnections.filter((conn, index, self) =>
+    index === self.findIndex(c => c.instance_name === conn.instance_name)
+  );
   const pagination = connectionsData?.pagination || { page: 1, totalPages: 1, total: 0 };
 
   const syncMutation = useMutation({
