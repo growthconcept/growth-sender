@@ -54,4 +54,5 @@ jobs:
             git pull origin main
             docker compose up --build -d
             docker compose exec -T backend npm run migrate || true
+            docker restart growth-nginx
             docker image prune -f
