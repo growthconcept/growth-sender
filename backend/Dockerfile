@@ -1,5 +1,5 @@
 # Dockerfile para Backend
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Instalar dependências do sistema necessárias para PostgreSQL
 RUN apk add --no-cache python3 make g++
@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copiar código fonte
 COPY . .

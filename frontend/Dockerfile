@@ -1,5 +1,5 @@
 # Dockerfile para Frontend - Build e servidor Nginx
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Criar diretório de trabalho
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci
+RUN npm install
 
 # Copiar código fonte
 COPY . .
